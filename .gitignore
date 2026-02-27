@@ -27,3 +27,6 @@ service-account*.json
 .prd
 
 .code-search/
+.browser-profile/
+.chrome-profile/
+*.png

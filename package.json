@@ -20,20 +20,21 @@
     "bun:install": "bun install"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
     "google-auth-library": "^10.3.0",
     "googleapis": "^144.0.0",
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
     "open": "^10.0.3"
   },
   "agents": {
     "docmcp": "skills/docmcp"
   },
   "files": [
-     "cli.js",
-     "stdio-server.js",
-     "http-server.js",
+    "cli.js",
+    "stdio-server.js",
+    "http-server.js",
     "docs.js",
     "docs-core.js",
     "docs-edit.js",
@@ -56,5 +57,8 @@
     "skills/",
     "README.md"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
 }
