@@ -410,7 +410,7 @@ class AuthenticatedHTTPServer {
 }
 
 // Command-line interface
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && process.argv[1].endsWith('http-server.js')) {
   const args = process.argv.slice(2);
   let port = 3333;
   let host = '127.0.0.1';

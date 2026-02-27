@@ -73,7 +73,7 @@ async function getAuth() {
 
 const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
 
-async function handleToolCall(name, args) {
+export async function handleToolCall(name, args) {
   const auth = await getAuth();
 
   const docsResult = await handleDocsToolCall(name, args, auth);
