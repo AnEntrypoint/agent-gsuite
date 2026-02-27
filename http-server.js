@@ -58,6 +58,7 @@ class AuthenticatedHTTPServer {
     this.oAuth2Client = null;
     this.credentials = null;
     this.transportMap = new Map();
+    this.serverMap = new Map();
     this.userAuthMap = new Map();
     this.initializeExpress();
     this.initializeRoutes();
@@ -1023,68 +1024,80 @@ class AuthenticatedHTTPServer {
     }
 
     try {
-      // Create a new MCP server instance for each connection to avoid "already connected" errors
-      const server = new Server(
-        { name: 'docmcp', version: '1.0.0' },
-        { capabilities: { tools: {} } }
-      );
+      // Check if transport already exists for this session
+      let transport = this.transportMap.get(sessionId);
+      let server = this.serverMap.get(sessionId);
 
-      const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
+      if (!transport) {
+        // Create a new MCP server instance for this session (reused for all requests in this session)
+        server = new Server(
+          { name: 'docmcp', version: '1.0.0' },
+          { capabilities: { tools: {} } }
+        );
 
-      server.setRequestHandler(ListToolsRequestSchema, async () => {
-        return { tools: TOOLS };
-      });
+        const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
 
-      server.setRequestHandler(CallToolRequestSchema, async (request) => {
-        const { name, arguments: args } = request.params;
+        server.setRequestHandler(ListToolsRequestSchema, async () => {
+          return { tools: TOOLS };
+        });
 
-        try {
-          const auth = await this.getUserAuth(sessionId);
-          if (!auth) {
-            throw new Error('Authentication required. Please login first.');
+        server.setRequestHandler(CallToolRequestSchema, async (request) => {
+          const { name, arguments: args } = request.params;
+
+          try {
+            const auth = await this.getUserAuth(sessionId);
+            if (!auth) {
+              throw new Error('Authentication required. Please login first.');
+            }
+
+            const docsResult = await handleDocsToolCall(name, args, auth);
+            if (docsResult) return docsResult;
+
+            const sheetsResult = await handleSheetsToolCall(name, args, auth);
+            if (sheetsResult) return sheetsResult;
+
+            const gmailResult = await handleGmailToolCall(name, args, auth);
+            if (gmailResult) return gmailResult;
+
+            throw new Error(`Unknown tool: ${name}`);
+          } catch (err) {
+            return {
+              content: [{ type: 'text', text: `Error: ${err.message}` }],
+              isError: true
+            };
           }
+        });
 
-          const docsResult = await handleDocsToolCall(name, args, auth);
-          if (docsResult) return docsResult;
+        // Create Streamable HTTP transport for this session (reused for all requests)
+        transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => sessionId // Use existing sessionId
+        });
 
-          const sheetsResult = await handleSheetsToolCall(name, args, auth);
-          if (sheetsResult) return sheetsResult;
+        // Store for reuse
+        this.transportMap.set(sessionId, transport);
+        this.serverMap.set(sessionId, server);
 
-          const gmailResult = await handleGmailToolCall(name, args, auth);
-          if (gmailResult) return gmailResult;
+        // Connect to MCP server
+        await server.connect(transport);
 
-          throw new Error(`Unknown tool: ${name}`);
-        } catch (err) {
-          return {
-            content: [{ type: 'text', text: `Error: ${err.message}` }],
-            isError: true
-          };
-        }
-      });
+        console.log(`MCP server and transport initialized for session: ${sessionId}`);
 
-      // Create Streamable HTTP transport for this connection
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => sessionId // Use existing sessionId
-      });
-      this.transportMap.set(sessionId, transport);
+        // Handle transport close
+        transport.onclose = () => {
+          console.log(`Streamable HTTP connection closed for session: ${sessionId}`);
+          this.transportMap.delete(sessionId);
+          this.serverMap.delete(sessionId);
+        };
+      }
 
-      // Connect to MCP server
-      await server.connect(transport);
-
-      // Handle the request
+      // Handle the request with existing transport
       await transport.handleRequest(req, res, req.body);
-
-      console.log(`Streamable HTTP connection established for session: ${sessionId}`);
-
-      // Handle transport close
-      transport.onclose = () => {
-        console.log(`Streamable HTTP connection closed for session: ${sessionId}`);
-        this.transportMap.delete(sessionId);
-      };
 
     } catch (error) {
       console.error('Streamable HTTP Connection Error:', error);
-      res.status(500).json({ error: 'Connection failed', message: error.message });
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Connection failed', message: error.message });
+      }
     }
   }
 
