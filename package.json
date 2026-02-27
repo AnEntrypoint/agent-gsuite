@@ -25,7 +25,6 @@
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "google-auth-library": "^10.3.0",
-    "googleapis": "^144.0.0",
     "open": "^10.0.3"
   },
   "agents": {
@@ -59,6 +58,7 @@
   ],
   "license": "MIT",
   "devDependencies": {
+    "googleapis": "^171.4.0",
     "playwright": "^1.58.2"
   }
 }
