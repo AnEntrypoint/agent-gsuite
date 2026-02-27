@@ -9,6 +9,7 @@ import open from 'open';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { AsyncLocalStorage } from 'async_hooks';
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
@@ -21,6 +22,9 @@ import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS } from './tools-doc
 import { SHEETS_TOOLS, SCRIPTS_TOOLS } from './tools-sheets.js';
 import { GMAIL_TOOLS } from './tools-gmail.js';
 import { handleDocsToolCall, handleSheetsToolCall, handleGmailToolCall } from './handlers.js';
+
+// AsyncLocalStorage for session context
+const sessionContext = new AsyncLocalStorage();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,10 +76,20 @@ class AuthenticatedHTTPServer {
   }
 
   initializeRoutes() {
+    // Session context middleware - extract and validate session ID
+    const sessionContextMiddleware = (req, res, next) => {
+      // Extract session ID from URL params, query params, or headers
+      const sessionId = req.params.sessionId || req.query.sessionId || req.headers['x-session-id'];
+
+      // Attach to request for downstream handlers
+      req.sessionId = sessionId;
+      next();
+    };
+
     // Health check
     this.app.get('/', (req, res) => {
-      res.json({ 
-        status: 'ok', 
+      res.json({
+        status: 'ok',
         service: 'docmcp-http-server',
         version: '1.0.0',
         endpoints: {
@@ -104,11 +118,11 @@ class AuthenticatedHTTPServer {
     this.app.get('/auth/login', (req, res) => this.handleLogin(req, res));
     this.app.get('/auth/callback', (req, res) => this.handleCallback(req, res));
 
-    // SSE connection
-    this.app.get('/sse/:sessionId', (req, res) => this.handleSSEConnection(req, res));
+    // SSE connection with session context
+    this.app.get('/sse/:sessionId', sessionContextMiddleware, (req, res) => this.handleSSEConnection(req, res));
 
-    // Message endpoint
-    this.app.post('/message', (req, res) => this.handleMessage(req, res));
+    // Message endpoint with session context
+    this.app.post('/message', sessionContextMiddleware, (req, res) => this.handleMessage(req, res));
 
     // Error handler
     this.app.use((err, req, res, next) => {
@@ -131,10 +145,10 @@ class AuthenticatedHTTPServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      
+
       try {
-        // Get session ID from request context if available
-        const sessionId = request.context?.sessionId;
+        // Get session ID from AsyncLocalStorage context
+        const sessionId = sessionContext.getStore();
         if (!sessionId) {
           throw new Error('Session not found. Please authenticate first.');
         }
@@ -334,7 +348,7 @@ class AuthenticatedHTTPServer {
   }
 
   async handleSSEConnection(req, res) {
-    const sessionId = req.params.sessionId;
+    const sessionId = req.sessionId;
     const session = this.sessionMap.get(sessionId);
 
     if (!session) {
@@ -350,15 +364,40 @@ class AuthenticatedHTTPServer {
       const transport = new SSEServerTransport('/message', res);
       this.transportMap.set(sessionId, transport);
 
-      // Connect to MCP server with session context
+      // Store original server handlers to restore them later
+      const originalHandlers = new Map(this.server._requestHandlers || []);
+
+      // Wrap request handlers to inject session context
+      const wrappedCallToolHandler = async (request) => {
+        // Run the handler in the session context
+        return new Promise((resolve, reject) => {
+          sessionContext.run(sessionId, async () => {
+            try {
+              const originalHandler = originalHandlers.get(CallToolRequestSchema);
+              const result = await originalHandler.call(this.server, request);
+              resolve(result);
+            } catch (err) {
+              reject(err);
+            }
+          });
+        });
+      };
+
+      this.server.setRequestHandler(CallToolRequestSchema, wrappedCallToolHandler);
+
+      // Connect to MCP server
       await this.server.connect(transport);
 
       console.log(`SSE connection established for session: ${sessionId}`);
-      
+
       // Handle transport close
       transport.onclose = () => {
         console.log(`SSE connection closed for session: ${sessionId}`);
         this.transportMap.delete(sessionId);
+        // Restore original handlers for next session
+        originalHandlers.forEach((handler, schema) => {
+          this.server.setRequestHandler(schema, handler);
+        });
       };
 
       // Start the transport
@@ -370,7 +409,7 @@ class AuthenticatedHTTPServer {
   }
 
   async handleMessage(req, res) {
-    const sessionId = req.query.sessionId || req.headers['x-session-id'];
+    const sessionId = req.sessionId || req.query.sessionId || req.headers['x-session-id'];
     const transport = this.transportMap.get(sessionId);
 
     if (!transport) {
@@ -378,7 +417,10 @@ class AuthenticatedHTTPServer {
     }
 
     try {
-      await transport.handlePostMessage(req, res);
+      // Run message handling within the session context
+      await sessionContext.run(sessionId, async () => {
+        await transport.handlePostMessage(req, res);
+      });
     } catch (error) {
       console.error('Message Handling Error:', error);
       res.status(500).json({
