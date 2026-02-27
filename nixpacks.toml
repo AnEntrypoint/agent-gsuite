@@ -13,8 +13,9 @@ cmd = 'node http-server.js --port 3000 --host 0.0.0.0'
 ports = ['3000:3000']
 dependsOn = ['build']
 
-[variables]
-GOOGLE_OAUTH_CLIENT_ID = { type = "string", description = "Google OAuth Client ID", required = true }
-GOOGLE_OAUTH_CLIENT_SECRET = { type = "string", description = "Google OAuth Client Secret", required = true }
-REDIRECT_URI = { type = "string", description = "OAuth Redirect URI (https://your-domain.com/auth/callback)", required = true }
-CORS_ORIGIN = { type = "string", description = "CORS origin (https://your-domain.com)", required = true }
+# Environment variables are required for OAuth
+# Set these in your Coolify deployment:
+# GOOGLE_OAUTH_CLIENT_ID - Google OAuth client ID
+# GOOGLE_OAUTH_CLIENT_SECRET - Google OAuth client secret
+# REDIRECT_URI - OAuth redirect URI (e.g., https://your-domain.com/auth/callback)
+# CORS_ORIGIN - CORS origin (e.g., https://your-domain.com)
