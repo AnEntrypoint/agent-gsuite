@@ -1023,35 +1023,53 @@ class AuthenticatedHTTPServer {
     }
 
     try {
+      // Create a new MCP server instance for each connection to avoid "already connected" errors
+      const server = new Server(
+        { name: 'docmcp', version: '1.0.0' },
+        { capabilities: { tools: {} } }
+      );
+
+      const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
+
+      server.setRequestHandler(ListToolsRequestSchema, async () => {
+        return { tools: TOOLS };
+      });
+
+      server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        const { name, arguments: args } = request.params;
+
+        try {
+          const auth = await this.getUserAuth(sessionId);
+          if (!auth) {
+            throw new Error('Authentication required. Please login first.');
+          }
+
+          const docsResult = await handleDocsToolCall(name, args, auth);
+          if (docsResult) return docsResult;
+
+          const sheetsResult = await handleSheetsToolCall(name, args, auth);
+          if (sheetsResult) return sheetsResult;
+
+          const gmailResult = await handleGmailToolCall(name, args, auth);
+          if (gmailResult) return gmailResult;
+
+          throw new Error(`Unknown tool: ${name}`);
+        } catch (err) {
+          return {
+            content: [{ type: 'text', text: `Error: ${err.message}` }],
+            isError: true
+          };
+        }
+      });
+
       // Create Streamable HTTP transport for this connection
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => sessionId // Use existing sessionId
       });
       this.transportMap.set(sessionId, transport);
 
-      // Store original server handlers to restore them later
-      const originalHandlers = new Map(this.server._requestHandlers || []);
-
-      // Wrap request handlers to inject session context
-      const wrappedCallToolHandler = async (request) => {
-        // Run the handler in the session context
-        return new Promise((resolve, reject) => {
-          sessionContext.run(sessionId, async () => {
-            try {
-              const originalHandler = originalHandlers.get(CallToolRequestSchema);
-              const result = await originalHandler.call(this.server, request);
-              resolve(result);
-            } catch (err) {
-              reject(err);
-            }
-          });
-        });
-      };
-
-      this.server.setRequestHandler(CallToolRequestSchema, wrappedCallToolHandler);
-
       // Connect to MCP server
-      await this.server.connect(transport);
+      await server.connect(transport);
 
       // Handle the request
       await transport.handleRequest(req, res, req.body);
@@ -1062,10 +1080,6 @@ class AuthenticatedHTTPServer {
       transport.onclose = () => {
         console.log(`Streamable HTTP connection closed for session: ${sessionId}`);
         this.transportMap.delete(sessionId);
-        // Restore original handlers for next session
-        originalHandlers.forEach((handler, schema) => {
-          this.server.setRequestHandler(schema, handler);
-        });
       };
 
     } catch (error) {
