@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 import { AsyncLocalStorage } from 'async_hooks';
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
   ListToolsRequestSchema,
   CallToolRequestSchema
@@ -98,13 +98,12 @@ class AuthenticatedHTTPServer {
           auth_callback: '/auth/callback (GET) - OAuth callback endpoint',
           auth_token: '/auth/token (POST) - API token authentication for CLI/tools',
           auth_info: '/auth/info (GET) - Learn how to authenticate',
-          sse: '/sse/:sessionId (GET) - SSE streaming endpoint',
-          message: '/message (POST) - Message transmission endpoint',
+          mcp: '/mcp (ALL) - Streamable HTTP transport endpoint',
           status: '/status (GET) - Server status'
         },
         quick_start: {
-          browser_users: 'GET /auth/login then use sessionId with /sse/:sessionId',
-          api_clients: 'POST /auth/token with Google OAuth token then use /sse/:sessionId',
+          browser_users: 'GET /auth/login then use sessionId with /mcp',
+          api_clients: 'POST /auth/token with Google OAuth token then use /mcp',
           learn_more: 'GET /auth/info for detailed authentication guide'
         },
         activeSessions: this.sessionMap.size,
@@ -132,11 +131,8 @@ class AuthenticatedHTTPServer {
     // Get authentication info for configured MCP client
     this.app.get('/auth/info', (req, res) => this.handleAuthInfo(req, res));
 
-    // SSE connection with session context
-    this.app.get('/sse/:sessionId', sessionContextMiddleware, (req, res) => this.handleSSEConnection(req, res));
-
-    // Message endpoint with session context
-    this.app.post('/message', sessionContextMiddleware, (req, res) => this.handleMessage(req, res));
+    // Streamable HTTP transport endpoint
+    this.app.all('/mcp', sessionContextMiddleware, (req, res) => this.handleStreamableHttpConnection(req, res));
 
     // Error handler
     this.app.use((err, req, res, next) => {
@@ -284,12 +280,188 @@ class AuthenticatedHTTPServer {
         await open(authUrl);
       }
 
-      res.json({
-        success: true,
-        message: 'Authentication started. Please check your browser or visit the provided URL.',
-        sessionId: sessionId,
-        authUrl: authUrl
-      });
+      // Return HTML response with proper login page
+      res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>docmcp - Google Workspace Login</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 20px;
+                }
+                
+                .container {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 40px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    max-width: 500px;
+                    width: 100%;
+                    text-align: center;
+                }
+                
+                .logo {
+                    font-size: 48px;
+                    font-weight: bold;
+                    color: #667eea;
+                    margin-bottom: 20px;
+                }
+                
+                .title {
+                    font-size: 28px;
+                    color: #333;
+                    margin-bottom: 10px;
+                }
+                
+                .subtitle {
+                    font-size: 16px;
+                    color: #666;
+                    margin-bottom: 40px;
+                    line-height: 1.5;
+                }
+                
+                .google-login-button {
+                    background: #4285F4;
+                    color: white;
+                    border: none;
+                    padding: 15px 30px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 10px;
+                    text-decoration: none;
+                }
+                
+                .google-login-button:hover {
+                    background: #3367D6;
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 15px rgba(66, 133, 244, 0.4);
+                }
+                
+                .google-login-button:active {
+                    transform: translateY(0);
+                }
+                
+                .google-icon {
+                    font-size: 20px;
+                }
+                
+                .session-info {
+                    margin-top: 30px;
+                    padding: 20px;
+                    background: #f5f7fa;
+                    border-radius: 10px;
+                    font-size: 14px;
+                    color: #555;
+                }
+                
+                .session-info code {
+                    background: #e8e8e8;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 12px;
+                    color: #333;
+                }
+                
+                .features {
+                    margin-top: 30px;
+                    text-align: left;
+                }
+                
+                .features h3 {
+                    font-size: 16px;
+                    color: #333;
+                    margin-bottom: 15px;
+                }
+                
+                .features ul {
+                    list-style: none;
+                    padding: 0;
+                }
+                
+                .features li {
+                    padding: 8px 0;
+                    color: #666;
+                    font-size: 14px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                
+                .features li::before {
+                    content: "✓";
+                    color: #4CAF50;
+                    font-weight: bold;
+                    font-size: 18px;
+                }
+                
+                @media (max-width: 600px) {
+                    .container {
+                        padding: 30px 20px;
+                    }
+                    
+                    .title {
+                        font-size: 24px;
+                    }
+                    
+                    .subtitle {
+                        font-size: 14px;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="logo">📄</div>
+                <h1 class="title">docmcp</h1>
+                <p class="subtitle">Connect your Google Workspace account to use powerful document processing tools</p>
+                
+                <a href="${authUrl}" class="google-login-button">
+                    <span class="google-icon">🔐</span>
+                    Sign in with Google
+                </a>
+                
+                <div class="session-info">
+                    <p><strong>Session ID:</strong> <code>${sessionId}</code></p>
+                    <p style="margin-top: 10px; font-size: 12px; color: #999;">
+                        You will be redirected to Google's login page
+                    </p>
+                </div>
+                
+                <div class="features">
+                    <h3>Features:</h3>
+                    <ul>
+                        <li>📄 Google Docs integration</li>
+                        <li>📊 Google Sheets integration</li>
+                        <li>📧 Gmail integration</li>
+                        <li>🔄 Real-time collaboration</li>
+                        <li>⚡ 52+ powerful operations</li>
+                    </ul>
+                </div>
+            </div>
+        </body>
+        </html>
+      `);
     } catch (error) {
       console.error('Login Error:', error);
       res.status(500).json({
@@ -305,28 +477,150 @@ class AuthenticatedHTTPServer {
 
     if (error) {
       console.error('Authentication Error:', error);
-      return res.status(400).json({
-        success: false,
-        error: 'Authentication canceled',
-        message: error
-      });
+      return res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>docmcp - Authentication Error</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 20px;
+                    color: #333;
+                }
+                .container {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 40px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    max-width: 500px;
+                    width: 100%;
+                    text-align: center;
+                }
+                .error-icon { font-size: 80px; color: #f44336; margin-bottom: 20px; }
+                .title { font-size: 28px; color: #333; margin-bottom: 10px; }
+                .subtitle { font-size: 16px; color: #666; margin-bottom: 30px; line-height: 1.5; }
+                .error-details { background: #ffebee; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: left; }
+                .error-details pre { font-size: 12px; color: #c62828; margin: 0; }
+                .back-button { background: #667eea; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.3s; }
+                .back-button:hover { background: #5a6fd8; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error-icon">❌</div>
+                <h1 class="title">Authentication Canceled</h1>
+                <p class="subtitle">You canceled the authentication process</p>
+                <div class="error-details">
+                    <pre>${error}</pre>
+                </div>
+                <a href="/auth/login" class="back-button">Try Again</a>
+            </div>
+        </body>
+        </html>
+      `);
     }
 
     if (!code || !state) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid request',
-        message: 'Missing code or state parameter'
-      });
+      return res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>docmcp - Invalid Request</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 20px;
+                    color: #333;
+                }
+                .container {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 40px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    max-width: 500px;
+                    width: 100%;
+                    text-align: center;
+                }
+                .error-icon { font-size: 80px; color: #f44336; margin-bottom: 20px; }
+                .title { font-size: 28px; color: #333; margin-bottom: 10px; }
+                .subtitle { font-size: 16px; color: #666; margin-bottom: 30px; line-height: 1.5; }
+                .back-button { background: #667eea; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.3s; }
+                .back-button:hover { background: #5a6fd8; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error-icon">⚠️</div>
+                <h1 class="title">Invalid Request</h1>
+                <p class="subtitle">Missing code or state parameter</p>
+                <a href="/auth/login" class="back-button">Try Again</a>
+            </div>
+        </body>
+        </html>
+      `);
     }
 
     const session = this.sessionMap.get(state);
     if (!session) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid session',
-        message: 'Session not found or expired'
-      });
+      return res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>docmcp - Invalid Session</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 20px;
+                    color: #333;
+                }
+                .container {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 40px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    max-width: 500px;
+                    width: 100%;
+                    text-align: center;
+                }
+                .error-icon { font-size: 80px; color: #f44336; margin-bottom: 20px; }
+                .title { font-size: 28px; color: #333; margin-bottom: 10px; }
+                .subtitle { font-size: 16px; color: #666; margin-bottom: 30px; line-height: 1.5; }
+                .back-button { background: #667eea; color: white; border: none; padding: 15px 30px; font-size: 16px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.3s; }
+                .back-button:hover { background: #5a6fd8; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="error-icon">⏰</div>
+                <h1 class="title">Session Expired</h1>
+                <p class="subtitle">Session not found or has expired</p>
+                <a href="/auth/login" class="back-button">Try Again</a>
+            </div>
+        </body>
+        </html>
+      `);
     }
 
     try {
@@ -339,18 +633,214 @@ class AuthenticatedHTTPServer {
 
       console.log(`Session authenticated: ${state}`);
 
-      // Return success response with session information
-      res.json({
-        success: true,
-        message: 'Authentication successful! You can now use the MCP server.',
-        sessionId: state,
-        user: {
-          email: tokens.email || 'unknown',
-          expiry_date: tokens.expiry_date,
-          token_type: tokens.token_type,
-          scope: tokens.scope
-        }
-      });
+      // Return HTML success page
+      res.send(`
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>docmcp - Authentication Successful</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+                
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    min-height: 100vh;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 20px;
+                }
+                
+                .container {
+                    background: white;
+                    border-radius: 20px;
+                    padding: 40px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                    max-width: 500px;
+                    width: 100%;
+                    text-align: center;
+                }
+                
+                .success-icon {
+                    font-size: 80px;
+                    color: #4CAF50;
+                    margin-bottom: 20px;
+                }
+                
+                .title {
+                    font-size: 28px;
+                    color: #333;
+                    margin-bottom: 10px;
+                }
+                
+                .subtitle {
+                    font-size: 16px;
+                    color: #666;
+                    margin-bottom: 30px;
+                    line-height: 1.5;
+                }
+                
+                .session-info {
+                    background: #f5f7fa;
+                    border-radius: 10px;
+                    padding: 20px;
+                    margin: 20px 0;
+                    text-align: left;
+                }
+                
+                .session-info label {
+                    font-weight: bold;
+                    color: #333;
+                    display: block;
+                    margin-bottom: 5px;
+                    font-size: 14px;
+                }
+                
+                .session-info code {
+                    background: #e8e8e8;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-family: 'Courier New', monospace;
+                    font-size: 13px;
+                    color: #333;
+                    word-break: break-all;
+                    display: block;
+                    margin-bottom: 10px;
+                }
+                
+                .copy-button {
+                    background: #667eea;
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    font-size: 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    transition: background 0.3s ease;
+                    margin-top: 5px;
+                }
+                
+                .copy-button:hover {
+                    background: #5a6fd8;
+                }
+                
+                .copy-button.copied {
+                    background: #4CAF50;
+                }
+                
+                .instructions {
+                    text-align: left;
+                    margin-top: 30px;
+                    padding: 20px;
+                    background: #fff3cd;
+                    border-radius: 10px;
+                    border-left: 4px solid #ffc107;
+                }
+                
+                .instructions h3 {
+                    font-size: 16px;
+                    color: #856404;
+                    margin-bottom: 15px;
+                }
+                
+                .instructions ol {
+                    padding-left: 20px;
+                    color: #555;
+                    line-height: 1.6;
+                }
+                
+                .instructions li {
+                    margin-bottom: 10px;
+                    font-size: 14px;
+                }
+                
+                .continue-button {
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 15px 30px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    text-decoration: none;
+                    display: inline-block;
+                    margin-top: 20px;
+                }
+                
+                .continue-button:hover {
+                    background: #45a049;
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+                }
+                
+                @media (max-width: 600px) {
+                    .container {
+                        padding: 30px 20px;
+                    }
+                    
+                    .title {
+                        font-size: 24px;
+                    }
+                    
+                    .subtitle {
+                        font-size: 14px;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="success-icon">🎉</div>
+                <h1 class="title">Authentication Successful!</h1>
+                <p class="subtitle">You are now connected to docmcp with your Google Workspace account</p>
+                
+                <div class="session-info">
+                    <label>Session ID</label>
+                    <code id="sessionId">${state}</code>
+                    <button class="copy-button" onclick="copyText('${state}')">Copy Session ID</button>
+                </div>
+                
+                <div class="instructions">
+                    <h3>Next Steps</h3>
+                    <ol>
+                        <li>Use this Session ID in your MCP client configuration</li>
+                        <li>Connect to the SSE endpoint: <code>/sse/${state}</code></li>
+                        <li>Start using the 52+ Google Workspace tools available</li>
+                    </ol>
+                </div>
+                
+                <a href="/" class="continue-button">
+                    ← Return to Home
+                </a>
+            </div>
+            
+            <script>
+                function copyText(text) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        const button = event.target;
+                        const originalText = button.textContent;
+                        button.textContent = 'Copied!';
+                        button.classList.add('copied');
+                        
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                            button.classList.remove('copied');
+                        }, 2000);
+                    });
+                }
+            </script>
+        </body>
+        </html>
+      `);
     } catch (error) {
       console.error('Token Exchange Error:', error);
       res.status(500).json({
@@ -450,7 +940,7 @@ class AuthenticatedHTTPServer {
               '4. Server exchanges code for tokens and returns sessionId'
             ],
             endpoint: '/auth/login',
-            result: 'sessionId for SSE connection'
+            result: 'sessionId for Streamable HTTP connection'
           },
           programmatic_oauth: {
             description: 'OAuth for CLI tools and external MCP clients',
@@ -470,19 +960,19 @@ class AuthenticatedHTTPServer {
             result: 'sessionId + credentials for subsequent calls'
           }
         },
-        sse_connection: {
-          description: 'SSE streaming endpoint - connect after getting sessionId',
-          endpoint: '/sse/:sessionId',
-          message_endpoint: '/message',
+        streamable_http_connection: {
+          description: 'Streamable HTTP transport endpoint - connect after getting sessionId',
+          endpoint: '/mcp',
+          methods: ['GET', 'POST'],
           session_id_sources: [
-            'URL parameter: /sse/{sessionId}',
-            'Query parameter: /sse?sessionId={sessionId}',
+            'URL parameter: /mcp?sessionId={sessionId}',
+            'Query parameter: /mcp?sessionId={sessionId}',
             'Header: X-Session-Id: {sessionId}'
           ]
         },
         mcp_configuration: {
           server_name: 'docmcp',
-          transport: 'sse',
+          transport: 'streamable_http',
           tools_count: 52,
           google_workspace_apis: [
             'Google Docs',
@@ -496,8 +986,8 @@ class AuthenticatedHTTPServer {
           'for_claude_code': [
             '1. User authenticates via: GET /auth/login (opens Google OAuth)',
             '2. After approval, user receives sessionId from /auth/callback',
-            '3. Configure MCP server with: { "command": "sse", "url": "http://SERVER:PORT/sse/:sessionId", "transport": "sse" }',
-            '4. Claude Code uses sessionId to connect to /sse/:sessionId endpoint'
+            '3. Configure MCP server with: { "command": "streamable_http", "url": "http://SERVER:PORT/mcp", "transport": "streamable_http" }',
+            '4. Claude Code uses sessionId to connect to /mcp endpoint'
           ],
           'for_cli_and_external_tools': [
             '1. Direct user to: GET http://SERVER:PORT/auth/login',
@@ -505,7 +995,7 @@ class AuthenticatedHTTPServer {
             '3. Capture authorization code from OAuth response',
             '4. POST /auth/token with { code: "...", state: "..." }',
             '5. Receive sessionId in response',
-            '6. Use sessionId to connect to /sse/:sessionId for SSE streaming',
+            '6. Use sessionId to connect to /mcp for Streamable HTTP',
             '7. All tool calls are OAuth-authenticated via user\'s Google credentials'
           ]
         }
@@ -520,7 +1010,7 @@ class AuthenticatedHTTPServer {
     }
   }
 
-  async handleSSEConnection(req, res) {
+  async handleStreamableHttpConnection(req, res) {
     const sessionId = req.sessionId;
     const session = this.sessionMap.get(sessionId);
 
@@ -533,8 +1023,10 @@ class AuthenticatedHTTPServer {
     }
 
     try {
-      // Create SSE transport for this connection
-      const transport = new SSEServerTransport('/message', res);
+      // Create Streamable HTTP transport for this connection
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => sessionId // Use existing sessionId
+      });
       this.transportMap.set(sessionId, transport);
 
       // Store original server handlers to restore them later
@@ -561,11 +1053,14 @@ class AuthenticatedHTTPServer {
       // Connect to MCP server
       await this.server.connect(transport);
 
-      console.log(`SSE connection established for session: ${sessionId}`);
+      // Handle the request
+      await transport.handleRequest(req, res, req.body);
+
+      console.log(`Streamable HTTP connection established for session: ${sessionId}`);
 
       // Handle transport close
       transport.onclose = () => {
-        console.log(`SSE connection closed for session: ${sessionId}`);
+        console.log(`Streamable HTTP connection closed for session: ${sessionId}`);
         this.transportMap.delete(sessionId);
         // Restore original handlers for next session
         originalHandlers.forEach((handler, schema) => {
@@ -573,35 +1068,16 @@ class AuthenticatedHTTPServer {
         });
       };
 
-      // Start the transport
-      await transport.start();
     } catch (error) {
-      console.error('SSE Connection Error:', error);
+      console.error('Streamable HTTP Connection Error:', error);
       res.status(500).json({ error: 'Connection failed', message: error.message });
     }
   }
 
   async handleMessage(req, res) {
-    const sessionId = req.sessionId || req.query.sessionId || req.headers['x-session-id'];
-    const transport = this.transportMap.get(sessionId);
-
-    if (!transport) {
-      return res.status(404).json({ error: 'Session not found or connection not established' });
-    }
-
-    try {
-      // Run message handling within the session context
-      await sessionContext.run(sessionId, async () => {
-        await transport.handlePostMessage(req, res);
-      });
-    } catch (error) {
-      console.error('Message Handling Error:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Message handling failed',
-        message: error.message
-      });
-    }
+    // For streamable HTTP, message handling is done through the /mcp endpoint
+    // This method is kept for backwards compatibility only
+    return this.handleStreamableHttpConnection(req, res);
   }
 
   async start() {
@@ -623,12 +1099,12 @@ class AuthenticatedHTTPServer {
         console.log(`\n📊 MCP Configuration:`);
         console.log(`  Server Name: docmcp`);
         console.log(`  Tools: 52 Google Workspace operations`);
-        console.log(`  Transport: HTTP SSE (Server-Sent Events)`);
+        console.log(`  Transport: Streamable HTTP`);
         console.log(`  Authentication: OAuth 2.0 (browser + API token)`);
         console.log(`\n💡 Quick Start:`);
         console.log(`  1. Browser users: Visit http://${this.host}:${this.port}/auth/login`);
         console.log(`  2. CLI/Tools: POST /auth/token with Google OAuth access token`);
-        console.log(`  3. Then connect to: /sse/:sessionId for streaming`);
+        console.log(`  3. Then connect to: /mcp for Streamable HTTP`);
         console.log(`  4. For full guide: GET http://${this.host}:${this.port}/auth/info`);
         console.log('');
         resolve();
