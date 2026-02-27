@@ -28,6 +28,24 @@ const __dirname = path.dirname(__filename);
 const CONFIG_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.config', 'gcloud', 'docmcp');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 
+// Auto-detect redirect URI and CORS origin from Coolify or environment
+function getRedirectUri(host, port) {
+  // Priority: explicit env var > Coolify URL > constructed URL
+  if (process.env.REDIRECT_URI) return process.env.REDIRECT_URI;
+  if (process.env.COOLIFY_URL) return `${process.env.COOLIFY_URL}/auth/callback`;
+  if (process.env.COOLIFY_FQDN) return `https://${process.env.COOLIFY_FQDN}/auth/callback`;
+  return `http://${host}:${port}/auth/callback`;
+}
+
+function getCorsOrigin(host, port) {
+  // Priority: explicit env var > Coolify URL > constructed URL > wildcard
+  if (process.env.CORS_ORIGIN) return process.env.CORS_ORIGIN;
+  if (process.env.COOLIFY_URL) return process.env.COOLIFY_URL;
+  if (process.env.COOLIFY_FQDN) return `https://${process.env.COOLIFY_FQDN}`;
+  if (host === '0.0.0.0' || host === '127.0.0.1') return '*';
+  return `http://${host}:${port}`;
+}
+
 class AuthenticatedHTTPServer {
   constructor(options = {}) {
     this.port = options.port || 3333;
@@ -44,8 +62,9 @@ class AuthenticatedHTTPServer {
 
   initializeExpress() {
     this.app = express();
+    this.corsOrigin = getCorsOrigin(this.host, this.port);
     this.app.use(cors({
-      origin: process.env.CORS_ORIGIN || '*',
+      origin: this.corsOrigin,
       credentials: true
     }));
     this.app.use(express.json({ limit: '4mb' }));
@@ -156,7 +175,7 @@ class AuthenticatedHTTPServer {
         installed: {
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uris: [process.env.REDIRECT_URI || `http://${this.host}:${this.port}/auth/callback`]
+          redirect_uris: [getRedirectUri(this.host, this.port)]
         }
       };
       return;
@@ -173,11 +192,11 @@ class AuthenticatedHTTPServer {
   }
 
   createOAuth2Client() {
-    const { client_id, client_secret, redirect_uris } = this.credentials.installed || this.credentials.web;
+    const { client_id, client_secret } = this.credentials.installed || this.credentials.web;
     return new google.auth.OAuth2(
       client_id,
       client_secret,
-      process.env.REDIRECT_URI || redirect_uris[0] || `http://${this.host}:${this.port}/auth/callback`
+      getRedirectUri(this.host, this.port)
     );
   }
 
@@ -381,6 +400,10 @@ class AuthenticatedHTTPServer {
         console.log(`- SSE endpoint: http://${this.host}:${this.port}/sse/:sessionId`);
         console.log(`- Message endpoint: http://${this.host}:${this.port}/message`);
         console.log(`- Status endpoint: http://${this.host}:${this.port}/status`);
+        console.log('');
+        console.log(`OAuth Configuration:`);
+        console.log(`- Redirect URI: ${getRedirectUri(this.host, this.port)}`);
+        console.log(`- CORS Origin: ${this.corsOrigin}`);
         console.log('');
         console.log('To use the server:');
         console.log('1. GET /auth/login - to start Google OAuth flow');
