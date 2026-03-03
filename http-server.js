@@ -50,6 +50,8 @@ function getCorsOrigin(host, port) {
   return `http://${host}:${port}`;
 }
 
+const SESSION_FILE = process.env.SESSION_FILE || path.join(__dirname, 'sessions.json');
+
 class AuthenticatedHTTPServer {
   constructor(options = {}) {
     this.port = options.port || 3333;
@@ -59,9 +61,54 @@ class AuthenticatedHTTPServer {
     this.credentials = null;
     this.userAuthMap = new Map();
     this.sseStreams = new Map();
+    this.loadSessions();
     this.initializeExpress();
     this.initializeRoutes();
     this.initializeMcpServer();
+  }
+
+  loadSessions() {
+    try {
+      if (!fs.existsSync(SESSION_FILE)) return;
+      const data = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8'));
+      for (const [id, session] of Object.entries(data)) {
+        this.sessionMap.set(id, session);
+      }
+      console.log(`[sessions] Loaded ${this.sessionMap.size} sessions from ${SESSION_FILE}`);
+    } catch (err) {
+      console.error('[sessions] Failed to load sessions:', err.message);
+    }
+  }
+
+  saveSessions() {
+    try {
+      const data = {};
+      for (const [id, session] of this.sessionMap.entries()) {
+        data[id] = session;
+      }
+      fs.writeFileSync(SESSION_FILE, JSON.stringify(data, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[sessions] Failed to save sessions:', err.message);
+    }
+  }
+
+  setSession(id, session) {
+    this.sessionMap.set(id, session);
+    this.saveSessions();
+  }
+
+  reconstructAuthClients() {
+    for (const [id, session] of this.sessionMap.entries()) {
+      if (session.status === 'authenticated' && session.tokens && !this.userAuthMap.has(id)) {
+        try {
+          const client = this.createOAuth2Client();
+          client.setCredentials(session.tokens);
+          this.userAuthMap.set(id, client);
+        } catch (err) {
+          console.error(`[sessions] Failed to reconstruct auth client for ${id}:`, err.message);
+        }
+      }
+    }
   }
 
   initializeExpress() {
@@ -321,7 +368,7 @@ class AuthenticatedHTTPServer {
       const clientState = req.query.state || null;
 
       // Create session
-      this.sessionMap.set(sessionId, {
+      this.setSession(sessionId, {
         state: state,
         createdAt: Date.now(),
         status: 'authenticating',
@@ -686,6 +733,7 @@ class AuthenticatedHTTPServer {
       session.status = 'authenticated';
       session.tokens = tokens;
       session.updatedAt = Date.now();
+      this.setSession(state, session);
 
       console.log(`Session authenticated: ${state}`);
 
@@ -796,7 +844,7 @@ class AuthenticatedHTTPServer {
       // Create authenticated session
       const sessionId = crypto.randomBytes(16).toString('hex');
 
-      this.sessionMap.set(sessionId, {
+      this.setSession(sessionId, {
         status: 'authenticated',
         tokens: tokens,
         createdAt: Date.now(),
@@ -874,7 +922,7 @@ class AuthenticatedHTTPServer {
       oAuth2Client.setCredentials({ refresh_token });
       const { credentials } = await oAuth2Client.refreshAccessToken();
       const sessionId = crypto.randomBytes(16).toString('hex');
-      this.sessionMap.set(sessionId, { status: 'authenticated', tokens: credentials, createdAt: Date.now(), authMethod: 'refresh_token' });
+      this.setSession(sessionId, { status: 'authenticated', tokens: credentials, createdAt: Date.now(), authMethod: 'refresh_token' });
       const authClient = this.createOAuth2Client();
       authClient.setCredentials(credentials);
       this.userAuthMap.set(sessionId, authClient);
