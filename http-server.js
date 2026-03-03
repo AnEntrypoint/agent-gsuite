@@ -735,11 +735,12 @@ sendSseError(res, status, error, loginUrl) {
   async handleStreamableHttpConnection(req, res) {
     const sessionId = req.sessionId;
 
-    if (req.headers.accept && !req.headers.accept.includes('text/event-stream')) {
-      req.headers.accept = req.headers.accept + ', text/event-stream';
-    }
-    if (!req.headers.accept) {
-      req.headers.accept = 'application/json, text/event-stream';
+    const a = req.headers.accept || '';
+    const needsJSON = !a.includes('application/json');
+    const needsSSE = !a.includes('text/event-stream');
+    if (needsJSON || needsSSE) {
+      const additions = [needsJSON && 'application/json', needsSSE && 'text/event-stream'].filter(Boolean).join(', ');
+      req.headers.accept = a ? `${a}, ${additions}` : additions;
     }
 
     try {
