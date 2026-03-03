@@ -119,8 +119,19 @@ class AuthenticatedHTTPServer {
         authorization_endpoint: `${base}/login`,
         token_endpoint: `${base}/oauth/token`,
         response_types_supported: ['code'],
-        grant_types_supported: ['authorization_code']
+        grant_types_supported: ['authorization_code', 'refresh_token'],
+        code_challenge_methods_supported: ['S256', 'plain'],
+        token_endpoint_auth_methods_supported: ['none']
       });
+    });
+
+    // Debug: inspect session states (remove in production after diagnosis)
+    this.app.get('/debug/sessions', (req, res) => {
+      const sessions = [];
+      for (const [id, s] of this.sessionMap.entries()) {
+        sessions.push({ id, status: s.status, createdAt: s.createdAt, clientRedirectUri: s.clientRedirectUri, clientState: s.clientState });
+      }
+      res.json({ count: sessions.length, sessions });
     });
 
     // Health check
@@ -830,16 +841,26 @@ class AuthenticatedHTTPServer {
   }
 
   async handleOAuthToken(req, res) {
-    const { code, grant_type } = req.body;
+    const { code, grant_type, refresh_token } = req.body;
+    console.log('[OAUTH/TOKEN] grant_type=%s code=%s refresh_token=%s sessionMapSize=%d', grant_type, code, refresh_token, this.sessionMap.size);
+
+    if (grant_type === 'refresh_token' && refresh_token) {
+      const session = this.sessionMap.get(refresh_token);
+      if (!session || session.status !== 'authenticated') {
+        return res.status(400).json({ error: 'invalid_grant', error_description: 'Refresh token not found or session not authenticated' });
+      }
+      return res.json({ access_token: refresh_token, token_type: 'bearer', expires_in: 86400 * 30, refresh_token });
+    }
+
     if (grant_type !== 'authorization_code' || !code) {
-      return res.status(400).json({ error: 'invalid_request' });
+      return res.status(400).json({ error: 'invalid_request', error_description: `Expected grant_type=authorization_code and code, got grant_type=${grant_type}` });
     }
     const session = this.sessionMap.get(code);
+    console.log('[OAUTH/TOKEN] session lookup for code=%s found=%s status=%s', code, !!session, session?.status);
     if (!session || session.status !== 'authenticated') {
       return res.status(400).json({ error: 'invalid_grant', error_description: 'Code not found or session not authenticated' });
     }
-    // Return sessionId as the access_token so client can use it as Bearer
-    res.json({ access_token: code, token_type: 'bearer', expires_in: 86400 * 30 });
+    res.json({ access_token: code, token_type: 'bearer', expires_in: 86400 * 30, refresh_token: code });
   }
 
   async handleRefreshAuth(req, res) {
