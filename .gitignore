@@ -30,4 +30,6 @@ service-account*.json
 .browser-profile/
 .chrome-profile/
 *.png
+*.jpg
+tmp_pw_runner*.*
 .gm-stop-verified
