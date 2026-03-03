@@ -727,7 +727,9 @@ class AuthenticatedHTTPServer {
     }
 
     try {
-      const { tokens } = await this.oAuth2Client.getToken(code);
+      await this.loadCredentials();
+      const callbackClient = this.createOAuth2Client();
+      const { tokens } = await callbackClient.getToken(code);
 
       // Update session with user's tokens
       session.status = 'authenticated';
