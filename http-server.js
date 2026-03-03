@@ -735,6 +735,13 @@ sendSseError(res, status, error, loginUrl) {
   async handleStreamableHttpConnection(req, res) {
     const sessionId = req.sessionId;
 
+    if (req.headers.accept && !req.headers.accept.includes('text/event-stream')) {
+      req.headers.accept = req.headers.accept + ', text/event-stream';
+    }
+    if (!req.headers.accept) {
+      req.headers.accept = 'application/json, text/event-stream';
+    }
+
     try {
       if (!this.serverMap) this.serverMap = new Map();
       if (!this.transportMap) this.transportMap = new Map();
