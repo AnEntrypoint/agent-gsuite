@@ -849,8 +849,15 @@ sendSseError(res, status, error, loginUrl) {
       if (!this.serverMap) this.serverMap = new Map();
       if (!this.transportMap) this.transportMap = new Map();
 
-      // Authenticated session: reuse transport
+      // Authenticated session: reuse transport (unless re-initialize)
       if (sessionId && this.sessionMap.get(sessionId)?.status === 'authenticated') {
+        const isReInit = (req.body || {}).method === 'initialize' && this.transportMap.has(sessionId);
+        if (isReInit) {
+          const old = this.transportMap.get(sessionId);
+          this.transportMap.delete(sessionId);
+          this.serverMap.delete(sessionId);
+          old.close().catch(() => {});
+        }
         if (!this.transportMap.has(sessionId)) {
           const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => sessionId });
           const server = this.buildMcpServer(sessionId);
