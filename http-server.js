@@ -117,7 +117,7 @@ class AuthenticatedHTTPServer {
       res.json({
         issuer: base,
         authorization_endpoint: `${base}/login`,
-        token_endpoint: `${base}/auth/token`,
+        token_endpoint: `${base}/oauth/token`,
         response_types_supported: ['code'],
         grant_types_supported: ['authorization_code']
       });
@@ -166,6 +166,9 @@ class AuthenticatedHTTPServer {
 
     // Refresh token injection - create authenticated session from refresh_token
     this.app.post('/auth/refresh', express.json(), (req, res) => this.handleRefreshAuth(req, res));
+
+    // OAuth token endpoint - ChatGPT exchanges code for access_token
+    this.app.post('/oauth/token', express.urlencoded({ extended: true }), express.json(), (req, res) => this.handleOAuthToken(req, res));
 
     // Streamable HTTP transport endpoint
     this.app.all('/mcp', sessionContextMiddleware, (req, res) => this.handleStreamableHttpConnection(req, res));
@@ -302,11 +305,17 @@ class AuthenticatedHTTPServer {
         prompt: 'consent'
       });
 
+      // Store OAuth client redirect_uri and state if provided (ChatGPT OAuth flow)
+      const clientRedirectUri = req.query.redirect_uri || null;
+      const clientState = req.query.state || null;
+
       // Create session
       this.sessionMap.set(sessionId, {
         state: state,
         createdAt: Date.now(),
-        status: 'authenticating'
+        status: 'authenticating',
+        clientRedirectUri,
+        clientState
       });
 
       console.log(`Created session: ${sessionId}`);
@@ -669,6 +678,13 @@ class AuthenticatedHTTPServer {
 
       console.log(`Session authenticated: ${state}`);
 
+      // If client provided redirect_uri (e.g. ChatGPT OAuth flow), redirect back with code
+      if (session.clientRedirectUri) {
+        const params = new URLSearchParams({ code: state });
+        if (session.clientState) params.set('state', session.clientState);
+        return res.redirect(`${session.clientRedirectUri}?${params.toString()}`);
+      }
+
       // Show success page with sessionId so user can copy it for ChatGPT
       res.send(`
         <!DOCTYPE html>
@@ -811,6 +827,19 @@ class AuthenticatedHTTPServer {
         resolution: 'Ensure authorization code is valid and not expired (codes expire after 10 minutes)'
       });
     }
+  }
+
+  async handleOAuthToken(req, res) {
+    const { code, grant_type } = req.body;
+    if (grant_type !== 'authorization_code' || !code) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+    const session = this.sessionMap.get(code);
+    if (!session || session.status !== 'authenticated') {
+      return res.status(400).json({ error: 'invalid_grant', error_description: 'Code not found or session not authenticated' });
+    }
+    // Return sessionId as the access_token so client can use it as Bearer
+    res.json({ access_token: code, token_type: 'bearer', expires_in: 86400 * 30 });
   }
 
   async handleRefreshAuth(req, res) {
