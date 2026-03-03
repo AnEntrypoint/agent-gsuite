@@ -57,9 +57,8 @@ class AuthenticatedHTTPServer {
     this.sessionMap = new Map();
     this.oAuth2Client = null;
     this.credentials = null;
-    this.transportMap = new Map();
-    this.serverMap = new Map();
     this.userAuthMap = new Map();
+    this.sseStreams = new Map();
     this.initializeExpress();
     this.initializeRoutes();
     this.initializeMcpServer();
@@ -106,7 +105,7 @@ class AuthenticatedHTTPServer {
           api_clients: 'POST /auth/token with Google OAuth code, then connect to /mcp with sessionId'
         },
         activeSessions: this.sessionMap.size,
-        activeConnections: this.transportMap.size
+        activeConnections: this.sseStreams.size
       });
     });
 
@@ -115,7 +114,7 @@ class AuthenticatedHTTPServer {
       res.json({
         status: 'running',
         activeSessions: this.sessionMap.size,
-        activeConnections: this.transportMap.size,
+        activeConnections: this.sseStreams.size,
         uptime: process.uptime()
       });
     });
@@ -715,103 +714,86 @@ async handleStreamableHttpConnection(req, res) {
     const sessionId = req.sessionId;
 
     try {
-      // Validate session exists and is authenticated
+      // GET requests open a standalone SSE stream - handle before auth check
+      // so ChatGPT and other clients can establish SSE before POST initialize
+      if (req.method === 'GET') {
+        return this.handleSseStream(req, res, sessionId);
+      }
+
+      // For POST/DELETE: validate session exists and is authenticated
       const session = this.sessionMap.get(sessionId);
-      if (!session) {
-        return res.status(404).set('Content-Type', 'text/event-stream').end(
-          `event: error\ndata: ${JSON.stringify({ error: 'Session not found' })}\n\n`
-        );
+      if (!session || session.status !== 'authenticated') {
+        const msg = !session ? 'Session not found. Visit /login to authenticate.' : 'Session not authenticated. Visit /login to complete authentication.';
+        return res.status(401).set('Content-Type', 'application/json').json({ error: msg });
       }
 
-      if (session.status !== 'authenticated') {
-        return res.status(401).set('Content-Type', 'text/event-stream').end(
-          `event: error\ndata: ${JSON.stringify({ error: 'Session not authenticated' })}\n\n`
-        );
-      }
+      // Stateless: create a fresh transport per POST request (avoids _initialized state issues)
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      const server = this.buildMcpServer(sessionId);
+      await server.connect(transport);
 
-      // Check if transport already exists for this session
-      let transport = this.transportMap.get(sessionId);
-      let server = this.serverMap.get(sessionId);
+      transport.onclose = () => server.close().catch(() => {});
 
-      if (!transport) {
-        // Create a new MCP server instance for this session (reused for all requests in this session)
-        server = new Server(
-          { name: 'docmcp', version: '1.0.0' },
-          { capabilities: { tools: {} } }
-        );
-
-        const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
-
-        server.setRequestHandler(ListToolsRequestSchema, async () => {
-          return { tools: TOOLS };
-        });
-
-        server.setRequestHandler(CallToolRequestSchema, async (request) => {
-          const { name, arguments: args } = request.params;
-
-          try {
-            const auth = await this.getUserAuth(sessionId);
-            if (!auth) {
-              throw new Error('Authentication required. Please login first.');
-            }
-
-            const docsResult = await handleDocsToolCall(name, args, auth);
-            if (docsResult) return docsResult;
-
-            const sheetsResult = await handleSheetsToolCall(name, args, auth);
-            if (sheetsResult) return sheetsResult;
-
-            const gmailResult = await handleGmailToolCall(name, args, auth);
-            if (gmailResult) return gmailResult;
-
-            throw new Error(`Unknown tool: ${name}`);
-          } catch (err) {
-            return {
-              content: [{ type: 'text', text: `Error: ${err.message}` }],
-              isError: true
-            };
-          }
-        });
-
-        // Create Streamable HTTP transport for this session (reused for all requests)
-        transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => sessionId
-        });
-
-        // Store for reuse
-        this.transportMap.set(sessionId, transport);
-        this.serverMap.set(sessionId, server);
-
-        // Connect to MCP server
-        await server.connect(transport);
-
-        console.log(`MCP server and transport initialized for session: ${sessionId}`);
-
-        // Handle transport close
-        transport.onclose = () => {
-          console.log(`Streamable HTTP connection closed for session: ${sessionId}`);
-          this.transportMap.delete(sessionId);
-          this.serverMap.delete(sessionId);
-        };
-      }
-
-      // Handle the request with existing transport - let it manage response headers and streaming
       await transport.handleRequest(req, res, req.body);
 
     } catch (error) {
       console.error('Streamable HTTP Connection Error:', error);
       if (!res.headersSent) {
-        res.status(500).set('Content-Type', 'text/event-stream').end(
-          `event: error\ndata: ${JSON.stringify({ error: 'Connection failed', message: error.message })}\n\n`
-        );
+        res.status(500).set('Content-Type', 'application/json').json({ error: 'Connection failed', message: error.message });
       }
     }
   }
 
-  async handleMessage(req, res) {
-    // For streamable HTTP, message handling is done through the /mcp endpoint
-    // This method is kept for backwards compatibility only
-    return this.handleStreamableHttpConnection(req, res);
+  handleSseStream(req, res, sessionId) {
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no'
+    });
+    res.flushHeaders();
+
+    // Register this SSE connection so POST responses can push to it
+    const streamKey = sessionId || `anon-${crypto.randomBytes(8).toString('hex')}`;
+    this.sseStreams = this.sseStreams || new Map();
+    this.sseStreams.set(streamKey, res);
+
+    console.log(`SSE stream opened for: ${streamKey}`);
+
+    req.on('close', () => {
+      this.sseStreams?.delete(streamKey);
+      console.log(`SSE stream closed for: ${streamKey}`);
+    });
+  }
+
+  buildMcpServer(sessionId) {
+    const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
+    const server = new Server({ name: 'docmcp', version: '1.0.0' }, { capabilities: { tools: {} } });
+
+    server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+
+    server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+      try {
+        const auth = await this.getUserAuth(sessionId);
+        if (!auth) throw new Error('Authentication required. Please login first.');
+
+        const docsResult = await handleDocsToolCall(name, args, auth);
+        if (docsResult) return docsResult;
+
+        const sheetsResult = await handleSheetsToolCall(name, args, auth);
+        if (sheetsResult) return sheetsResult;
+
+        const gmailResult = await handleGmailToolCall(name, args, auth);
+        if (gmailResult) return gmailResult;
+
+        throw new Error(`Unknown tool: ${name}`);
+      } catch (err) {
+        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+      }
+    });
+
+    return server;
   }
 
   async start() {
