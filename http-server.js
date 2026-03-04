@@ -975,6 +975,12 @@ sendSseError(res, status, error, loginUrl) {
       if (!this.serverMap) this.serverMap = new Map();
       if (!this.transportMap) this.transportMap = new Map();
 
+      // If Bearer token provided but session not found/valid, return 401 so client re-authenticates
+      if (sessionId && !this.sessionMap.has(sessionId)) {
+        res.status(401).set('WWW-Authenticate', 'Bearer error="invalid_token" error_description="Session expired or not found. Re-authenticate."').json({ error: 'invalid_token', error_description: 'Session expired or not found. Please re-authenticate.' });
+        return;
+      }
+
       // Authenticated session: reuse transport (unless re-initialize)
       if (sessionId && this.sessionMap.get(sessionId)?.status === 'authenticated') {
         const isReInit = (req.body || {}).method === 'initialize' && this.transportMap.has(sessionId);
