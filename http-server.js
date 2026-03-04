@@ -1027,6 +1027,26 @@ sendSseError(res, status, error, loginUrl) {
         const isInit = body.method === 'initialize';
 
         if (isInit) {
+          // If mcp-session-id header refers to an authenticated session, reuse it
+          const existingMcpId = req.headers['mcp-session-id'];
+          if (existingMcpId && this.sessionMap.get(existingMcpId)?.status === 'authenticated') {
+            const isReInit = this.transportMap.has(existingMcpId);
+            if (isReInit) {
+              const old = this.transportMap.get(existingMcpId);
+              this.transportMap.delete(existingMcpId);
+              this.serverMap?.delete(existingMcpId);
+              old.close().catch(() => {});
+            }
+            const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => existingMcpId });
+            const server = this.buildMcpServer(existingMcpId);
+            await server.connect(transport);
+            transport.onclose = () => { server.close().catch(() => {}); this.transportMap?.delete(existingMcpId); this.serverMap?.delete(existingMcpId); };
+            this.transportMap.set(existingMcpId, transport);
+            if (!this.serverMap) this.serverMap = new Map();
+            this.serverMap.set(existingMcpId, server);
+            await transport.handleRequest(req, res, body);
+            return;
+          }
           const anonKey = `anon_${crypto.randomBytes(8).toString('hex')}`;
           const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => anonKey });
           const server = this.buildUnauthMcpServer(this.getBaseUrl());
