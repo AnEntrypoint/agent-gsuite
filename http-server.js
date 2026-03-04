@@ -1015,8 +1015,30 @@ sendSseError(res, status, error, loginUrl) {
       const mcpSessionId = req.headers['mcp-session-id'];
       const body0 = req.body || {};
       if (mcpSessionId && this.transportMap.has(mcpSessionId) && body0.method !== 'initialize') {
-        const transport = this.transportMap.get(mcpSessionId);
-        await transport.handleRequest(req, res, req.body);
+        // If Bearer token provides an authenticated session, upgrade: close anon transport, route to auth
+        if (sessionId && this.sessionMap.get(sessionId)?.status === 'authenticated') {
+          const anon = this.transportMap.get(mcpSessionId);
+          this.transportMap.delete(mcpSessionId);
+          anon.close().catch(() => {});
+          // Fall through to authenticated session handler below
+        } else {
+          const transport = this.transportMap.get(mcpSessionId);
+          await transport.handleRequest(req, res, req.body);
+          return;
+        }
+      }
+
+      // Re-check authenticated session after possible anon upgrade
+      if (sessionId && this.sessionMap.get(sessionId)?.status === 'authenticated') {
+        if (!this.transportMap.has(sessionId)) {
+          const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => sessionId });
+          const server = this.buildMcpServer(sessionId);
+          await server.connect(transport);
+          transport.onclose = () => { server.close().catch(() => {}); this.transportMap?.delete(sessionId); this.serverMap?.delete(sessionId); };
+          this.transportMap.set(sessionId, transport);
+          this.serverMap.set(sessionId, server);
+        }
+        await this.transportMap.get(sessionId).handleRequest(req, res, req.body);
         return;
       }
 
