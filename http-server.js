@@ -368,9 +368,11 @@ class AuthenticatedHTTPServer {
         prompt: 'consent'
       });
 
-      // Store OAuth client redirect_uri and state if provided (ChatGPT OAuth flow)
+      // Store OAuth client redirect_uri, state, and PKCE params if provided (ChatGPT OAuth flow)
       const clientRedirectUri = req.query.redirect_uri || null;
       const clientState = req.query.state || null;
+      const codeChallenge = req.query.code_challenge || null;
+      const codeChallengeMethod = req.query.code_challenge_method || null;
 
       // Create session
       this.setSession(sessionId, {
@@ -378,7 +380,9 @@ class AuthenticatedHTTPServer {
         createdAt: Date.now(),
         status: 'authenticating',
         clientRedirectUri,
-        clientState
+        clientState,
+        codeChallenge,
+        codeChallengeMethod
       });
 
       console.log(`Created session: ${sessionId}`);
@@ -915,6 +919,27 @@ class AuthenticatedHTTPServer {
     if (!session || session.status !== 'authenticated') {
       return res.status(400).json({ error: 'invalid_grant', error_description: 'Code not found or session not authenticated' });
     }
+
+    // PKCE verification: if session stored a code_challenge, verify the code_verifier
+    const { code_verifier } = req.body;
+    if (session.codeChallenge) {
+      if (!code_verifier) {
+        return res.status(400).json({ error: 'invalid_grant', error_description: 'code_verifier required for PKCE' });
+      }
+      const method = session.codeChallengeMethod || 'S256';
+      let computed;
+      if (method === 'S256') {
+        computed = crypto.createHash('sha256').update(code_verifier).digest('base64url');
+      } else {
+        computed = code_verifier;
+      }
+      if (computed !== session.codeChallenge) {
+        console.log('[OAUTH/TOKEN] PKCE mismatch computed=%s stored=%s', computed, session.codeChallenge);
+        return res.status(400).json({ error: 'invalid_grant', error_description: 'code_verifier does not match code_challenge' });
+      }
+      console.log('[OAUTH/TOKEN] PKCE verified ok');
+    }
+
     res.json({ access_token: code, token_type: 'bearer', expires_in: 86400 * 30, refresh_token: code });
   }
 
