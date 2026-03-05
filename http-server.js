@@ -32,6 +32,7 @@ const __dirname = path.dirname(__filename);
 
 const CONFIG_DIR = path.join(process.env.HOME || process.env.USERPROFILE, '.config', 'gcloud', 'docmcp');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
+const ENABLE_DEBUG_ENDPOINTS = process.env.ENABLE_DEBUG_ENDPOINTS === '1';
 
 // Auto-detect redirect URI and CORS origin from Coolify or environment
 function getRedirectUri(host, port) {
@@ -137,9 +138,6 @@ class AuthenticatedHTTPServer {
 
     this.app.use((req, res, next) => {
       console.log('[REQ]', req.method, req.path);
-      console.log('[HDR]', JSON.stringify(req.headers));
-      const body = JSON.stringify(req.body);
-      if (body && body !== '{}') console.log('[BOD]', body.slice(0, 500));
       next();
     });
   }
@@ -185,8 +183,11 @@ class AuthenticatedHTTPServer {
       });
     });
 
-    // Debug: inspect session states (remove in production after diagnosis)
+    // Debug: inspect session states (disabled by default)
     this.app.get('/debug/sessions', (req, res) => {
+      if (!ENABLE_DEBUG_ENDPOINTS) {
+        return res.status(404).json({ error: 'Not found' });
+      }
       const sessions = [];
       for (const [id, s] of this.sessionMap.entries()) {
         sessions.push({ id, status: s.status, createdAt: s.createdAt, clientRedirectUri: s.clientRedirectUri, clientState: s.clientState });
@@ -941,8 +942,6 @@ class AuthenticatedHTTPServer {
         sessionId: sessionId,
         mcp_endpoint: '/mcp',
         credentials: {
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token || 'none',
           expiry_date: tokens.expiry_date,
           token_type: tokens.token_type
         },
@@ -966,7 +965,13 @@ class AuthenticatedHTTPServer {
 
   async handleOAuthToken(req, res) {
     const { code, grant_type, refresh_token } = req.body;
-    console.log('[OAUTH/TOKEN] grant_type=%s code=%s refresh_token=%s sessionMapSize=%d', grant_type, code, refresh_token, this.sessionMap.size);
+    console.log(
+      '[OAUTH/TOKEN] grant_type=%s has_code=%s has_refresh_token=%s sessionMapSize=%d',
+      grant_type,
+      Boolean(code),
+      Boolean(refresh_token),
+      this.sessionMap.size
+    );
 
     if (grant_type === 'refresh_token' && refresh_token) {
       const session = this.sessionMap.get(refresh_token);
@@ -980,7 +985,7 @@ class AuthenticatedHTTPServer {
       return res.status(400).json({ error: 'invalid_request', error_description: `Expected grant_type=authorization_code and code, got grant_type=${grant_type}` });
     }
     const session = this.sessionMap.get(code);
-    console.log('[OAUTH/TOKEN] session lookup for code=%s found=%s status=%s', code, !!session, session?.status);
+    console.log('[OAUTH/TOKEN] session lookup found=%s status=%s', !!session, session?.status);
     if (!session || session.status !== 'authenticated') {
       return res.status(400).json({ error: 'invalid_grant', error_description: 'Code not found or session not authenticated' });
     }
@@ -999,7 +1004,7 @@ class AuthenticatedHTTPServer {
         computed = code_verifier;
       }
       if (computed !== session.codeChallenge) {
-        console.log('[OAUTH/TOKEN] PKCE mismatch computed=%s stored=%s', computed, session.codeChallenge);
+        console.log('[OAUTH/TOKEN] PKCE mismatch');
         return res.status(400).json({ error: 'invalid_grant', error_description: 'code_verifier does not match code_challenge' });
       }
       console.log('[OAUTH/TOKEN] PKCE verified ok');
