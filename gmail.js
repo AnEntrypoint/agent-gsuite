@@ -259,6 +259,35 @@ export async function deleteFilter(auth, filterId) {
   return { deleted: filterId };
 }
 
+export async function replaceFilter(auth, filterId, criteriaPatch = {}, actionPatch = {}) {
+  const current = await getFilter(auth, filterId);
+  const nextCriteria = { ...(current.criteria || {}), ...(criteriaPatch || {}) };
+  const nextAction = { ...(current.action || {}), ...(actionPatch || {}) };
+  const created = await createFilter(auth, nextCriteria, nextAction);
+
+  let deleted = false;
+  try {
+    await deleteFilter(auth, filterId);
+    deleted = true;
+  } catch (err) {
+    return {
+      replaced: false,
+      oldFilterId: filterId,
+      newFilterId: created.id,
+      deletedOld: false,
+      warning: `Created replacement filter but failed to delete old filter: ${err.message}`
+    };
+  }
+
+  return {
+    replaced: true,
+    oldFilterId: filterId,
+    newFilterId: created.id,
+    deletedOld: deleted,
+    filter: created
+  };
+}
+
 export async function sendEmail(auth, to, subject, body, cc = null, bcc = null) {
   const gmail = getGmail(auth);
   

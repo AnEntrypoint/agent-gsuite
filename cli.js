@@ -134,6 +134,11 @@ Commands:
   gmail get-attachments <message-id> List attachments
   gmail download-attachment <message-id> <attachment-id> Download attachment
   gmail get-labels          List all labels
+  gmail list-filters        List all filters
+  gmail get-filter <filter-id> Get one filter
+  gmail create-filter       Create filter (--criteria, --action)
+  gmail delete-filter <filter-id> Delete filter
+  gmail replace-filter <filter-id> Replace filter (--criteria, --action)
   gmail send                Send email (--to, --subject, --body, --cc, --bcc)
   gmail delete <message-id> Permanently delete email
   gmail trash <message-id>  Move email to trash
@@ -927,6 +932,57 @@ Commands:
 
     if (sub === 'get-labels') {
       const result = await gmail.getLabels(auth);
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (sub === 'list-filters') {
+      const result = await gmail.listFilters(auth);
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (sub === 'get-filter') {
+      const filterId = args[2];
+      if (!filterId) {
+        console.error('Error: filter_id required');
+        process.exit(1);
+      }
+      const result = await gmail.getFilter(auth, filterId);
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (sub === 'create-filter') {
+      if (!opts.criteria || !opts.action) {
+        console.error('Error: --criteria and --action required');
+        process.exit(1);
+      }
+      const result = await gmail.createFilter(auth, parseJson(opts.criteria), parseJson(opts.action));
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (sub === 'delete-filter') {
+      const filterId = args[2];
+      if (!filterId) {
+        console.error('Error: filter_id required');
+        process.exit(1);
+      }
+      const result = await gmail.deleteFilter(auth, filterId);
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (sub === 'replace-filter') {
+      const filterId = args[2];
+      if (!filterId) {
+        console.error('Error: filter_id required');
+        process.exit(1);
+      }
+      const criteria = opts.criteria ? parseJson(opts.criteria) : {};
+      const action = opts.action ? parseJson(opts.action) : {};
+      const result = await gmail.replaceFilter(auth, filterId, criteria, action);
       console.log(JSON.stringify(result, null, 2));
       return;
     }
