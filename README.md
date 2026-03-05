@@ -175,6 +175,24 @@ For HTTP streaming connections, use MCP clients that support SSE transport:
 }
 ```
 
+## ChatGPT App Setup (Developer Mode)
+
+1. Start the HTTP server:
+```bash
+npm run http -- --port 3333 --host 0.0.0.0
+```
+2. Expose it over HTTPS (example with ngrok):
+```bash
+ngrok http 3333
+```
+3. In ChatGPT, enable Developer Mode:
+`Settings -> Apps & Connectors -> Advanced settings`.
+4. Create a new app and set MCP URL to:
+`https://<your-public-url>/mcp`.
+5. Complete OAuth at:
+`https://<your-public-url>/login`.
+6. Re-open ChatGPT app settings after tool changes so descriptor updates are reloaded.
+
 ## Usage with Bun
 
 ```bash

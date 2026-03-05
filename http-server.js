@@ -22,6 +22,7 @@ import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS } from './tools-doc
 import { SHEETS_TOOLS, SCRIPTS_TOOLS } from './tools-sheets.js';
 import { GMAIL_TOOLS } from './tools-gmail.js';
 import { handleDocsToolCall, handleSheetsToolCall, handleGmailToolCall } from './handlers.js';
+import { enrichToolsForApps } from './apps-metadata.js';
 
 // AsyncLocalStorage for session context
 const sessionContext = new AsyncLocalStorage();
@@ -269,7 +270,15 @@ class AuthenticatedHTTPServer {
       { capabilities: { tools: {} } }
     );
 
-    const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
+    const TOOLS = enrichToolsForApps([
+      ...DOCS_TOOLS,
+      ...SECTION_TOOLS,
+      ...MEDIA_TOOLS,
+      ...DRIVE_TOOLS,
+      ...SHEETS_TOOLS,
+      ...SCRIPTS_TOOLS,
+      ...GMAIL_TOOLS
+    ]);
 
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       return { tools: TOOLS };
@@ -1231,7 +1240,15 @@ sendSseError(res, status, error, loginUrl) {
   }
 
   buildUnauthMcpServer(baseUrl) {
-    const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
+    const TOOLS = enrichToolsForApps([
+      ...DOCS_TOOLS,
+      ...SECTION_TOOLS,
+      ...MEDIA_TOOLS,
+      ...DRIVE_TOOLS,
+      ...SHEETS_TOOLS,
+      ...SCRIPTS_TOOLS,
+      ...GMAIL_TOOLS
+    ]);
     const server = new Server({ name: 'docmcp', version: '1.0.0' }, { capabilities: { tools: {} } });
     const loginUrl = `${baseUrl}/login`;
 
@@ -1246,7 +1263,15 @@ sendSseError(res, status, error, loginUrl) {
   }
 
   buildMcpServer(sessionId) {
-    const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
+    const TOOLS = enrichToolsForApps([
+      ...DOCS_TOOLS,
+      ...SECTION_TOOLS,
+      ...MEDIA_TOOLS,
+      ...DRIVE_TOOLS,
+      ...SHEETS_TOOLS,
+      ...SCRIPTS_TOOLS,
+      ...GMAIL_TOOLS
+    ]);
     const server = new Server({ name: 'docmcp', version: '1.0.0' }, { capabilities: { tools: {} } });
 
     server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));

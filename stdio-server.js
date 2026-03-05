@@ -14,6 +14,7 @@ import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS } from './tools-doc
 import { SHEETS_TOOLS, SCRIPTS_TOOLS } from './tools-sheets.js';
 import { GMAIL_TOOLS } from './tools-gmail.js';
 import { handleDocsToolCall, handleSheetsToolCall, handleGmailToolCall } from './handlers.js';
+import { enrichToolsForApps } from './apps-metadata.js';
 
 const TOKEN_FILE = path.join(os.homedir(), '.config', 'gcloud', 'docmcp', 'token.json');
 const ADC_FILE = path.join(os.homedir(), '.config', 'gcloud', 'application_default_credentials.json');
@@ -71,7 +72,15 @@ async function getAuth() {
   return client;
 }
 
-const TOOLS = [...DOCS_TOOLS, ...SECTION_TOOLS, ...MEDIA_TOOLS, ...DRIVE_TOOLS, ...SHEETS_TOOLS, ...SCRIPTS_TOOLS, ...GMAIL_TOOLS];
+const TOOLS = enrichToolsForApps([
+  ...DOCS_TOOLS,
+  ...SECTION_TOOLS,
+  ...MEDIA_TOOLS,
+  ...DRIVE_TOOLS,
+  ...SHEETS_TOOLS,
+  ...SCRIPTS_TOOLS,
+  ...GMAIL_TOOLS
+]);
 
 export async function handleToolCall(name, args) {
   const auth = await getAuth();
