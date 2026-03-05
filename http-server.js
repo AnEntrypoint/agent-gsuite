@@ -99,6 +99,7 @@ class AuthenticatedHTTPServer {
     );
     this.sseStreams = new Map();
     this.loadSessions();
+    // Reconstructing auth clients needs OAuth credentials; perform lazily after load.
     this.reconstructAuthClients();
     this.initializeExpress();
     this.initializeRoutes();
@@ -137,7 +138,12 @@ class AuthenticatedHTTPServer {
     this.saveSessions();
   }
 
-  reconstructAuthClients() {
+  async reconstructAuthClients() {
+    try {
+      await this.loadCredentials();
+    } catch (err) {
+      console.warn('[sessions] Credentials unavailable during reconstruction:', err.message);
+    }
     for (const [id, session] of this.sessionMap.entries()) {
       if (session.status === 'authenticated' && session.tokens && !this.userAuthMap.has(id)) {
         try {
@@ -249,12 +255,13 @@ class AuthenticatedHTTPServer {
           auth_callback: '/auth/callback (GET) - OAuth callback endpoint',
           auth_token: '/auth/token (POST) - API token authentication for CLI/tools',
           mcp: '/mcp (ALL) - Streamable HTTP transport endpoint',
+          mcp_json: '/mcp-json (POST) - JSON-only MCP transport endpoint',
           status: '/status (GET) - Server status'
         },
         quick_start: {
           browser_users: 'GET /login - Authenticate and automatically connect to /mcp',
           api_clients: 'POST /auth/token with Google OAuth code, then connect to /mcp with sessionId',
-          chatgpt: '1) Enable Developer Mode in ChatGPT, 2) Add app using /mcp, 3) Complete OAuth when prompted'
+          chatgpt: '1) Enable Developer Mode in ChatGPT, 2) Add app using /mcp (or /mcp-json for strict JSON clients), 3) Complete OAuth when prompted'
         },
         activeSessions: this.sessionMap.size,
         activeConnections: this.sseStreams.size
@@ -299,6 +306,8 @@ class AuthenticatedHTTPServer {
 
     // Streamable HTTP transport endpoint
     this.app.all('/mcp', sessionContextMiddleware, (req, res) => this.handleStreamableHttpConnection(req, res));
+    // JSON-only MCP endpoint for clients that do not support SSE responses robustly.
+    this.app.post('/mcp-json', sessionContextMiddleware, (req, res) => this.handleJsonOnlyMcpConnection(req, res));
 
     // Error handler
     this.app.use((err, req, res, next) => {
@@ -444,8 +453,12 @@ class AuthenticatedHTTPServer {
     }
 
     if (!this.credentials) {
-      console.warn(`[auth] Cannot reconstruct auth client for ${sessionId} - credentials not loaded yet`);
-      return null;
+      try {
+        await this.loadCredentials();
+      } catch (err) {
+        console.warn(`[auth] Cannot reconstruct auth client for ${sessionId} - credentials unavailable: ${err.message}`);
+        return null;
+      }
     }
 
     // Create new auth client with user's tokens
@@ -1273,6 +1286,11 @@ class AuthenticatedHTTPServer {
     }
   }
 
+  async handleJsonOnlyMcpConnection(req, res) {
+    req.headers.accept = 'application/json';
+    return this.handleStreamableHttpConnection(req, res);
+  }
+
   buildUnauthMcpServer(baseUrl) {
     const TOOLS = enrichToolsForApps([
       ...DOCS_TOOLS,
@@ -1436,6 +1454,7 @@ class AuthenticatedHTTPServer {
         console.log(`  OAuth callback: http://${this.host}:${this.port}/auth/callback`);
         console.log(`  API token auth: POST http://${this.host}:${this.port}/auth/token`);
         console.log(`  Streamable HTTP: http://${this.host}:${this.port}/mcp`);
+        console.log(`  JSON-only MCP: http://${this.host}:${this.port}/mcp-json`);
         console.log(`\n🔐 OAuth Configuration:`);
         console.log(`  Redirect URI: ${getRedirectUri(this.host, this.port)}`);
         console.log(`  CORS Origin: ${this.corsOrigin}`);
