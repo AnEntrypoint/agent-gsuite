@@ -1287,7 +1287,9 @@ class AuthenticatedHTTPServer {
   }
 
   async handleJsonOnlyMcpConnection(req, res) {
-    req.headers.accept = 'application/json';
+    // Streamable transport currently validates for both media types.
+    // Allow JSON-only clients by normalizing accept server-side.
+    req.headers.accept = 'application/json, text/event-stream';
     return this.handleStreamableHttpConnection(req, res);
   }
 
