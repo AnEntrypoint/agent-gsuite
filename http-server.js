@@ -138,7 +138,7 @@ class AuthenticatedHTTPServer {
     // Session context middleware - extract and validate session ID
     const sessionContextMiddleware = (req, res, next) => {
       // Extract session ID from Bearer token, URL params, query params, or headers
-      let sessionId = req.params.sessionId || req.query.sessionId || req.headers['x-session-id'];
+      let sessionId = req.params.sessionId || req.query.sessionId || req.query.token || req.headers['x-session-id'];
       if (!sessionId && req.headers.authorization?.startsWith('Bearer ')) {
         sessionId = req.headers.authorization.slice(7);
       }
@@ -233,6 +233,16 @@ class AuthenticatedHTTPServer {
 
     // Dynamic Client Registration (RFC 7591) - ChatGPT registers itself before OAuth flow
     this.app.post('/register', express.json(), (req, res) => this.handleDynamicRegistration(req, res));
+
+    // Return current session token - useful for programmatic access after browser login
+    this.app.get('/mcp/token', sessionContextMiddleware, (req, res) => {
+      const sessionId = req.sessionId;
+      if (!sessionId || !this.sessionMap.has(sessionId) || this.sessionMap.get(sessionId)?.status !== 'authenticated') {
+        return res.status(401).json({ error: 'Not authenticated. Visit /login first.' });
+      }
+      const base = getCorsOrigin(req.get('host'), this.port);
+      res.json({ token: sessionId, mcp_url: `${base}/mcp`, mcp_url_with_token: `${base}/mcp?token=${sessionId}` });
+    });
 
     // Streamable HTTP transport endpoint
     this.app.all('/mcp', sessionContextMiddleware, (req, res) => this.handleStreamableHttpConnection(req, res));
@@ -758,6 +768,9 @@ class AuthenticatedHTTPServer {
       }
 
       // Show success page with sessionId so user can copy it for ChatGPT
+      const baseUrl = getCorsOrigin(req.get('host'), this.port);
+      const mcpUrl = `${baseUrl}/mcp`;
+      const mcpTokenUrl = `${baseUrl}/mcp?token=${state}`;
       res.send(`
         <!DOCTYPE html>
         <html lang="en">
@@ -768,53 +781,88 @@ class AuthenticatedHTTPServer {
             <style>
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 20px; }
-                .container { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); max-width: 560px; width: 100%; text-align: center; }
+                .container { background: white; border-radius: 20px; padding: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); max-width: 600px; width: 100%; text-align: center; }
                 .success-icon { font-size: 64px; margin-bottom: 20px; }
                 .title { font-size: 28px; color: #333; margin-bottom: 10px; }
                 .subtitle { font-size: 16px; color: #666; margin-bottom: 30px; line-height: 1.5; }
-                .session-box { background: #f0f4ff; border: 2px solid #667eea; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: left; }
-                .session-box label { font-size: 12px; font-weight: bold; color: #667eea; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; }
-                .session-id { font-family: 'Courier New', monospace; font-size: 14px; color: #333; background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; word-break: break-all; cursor: pointer; }
+                .token-box { background: #f0f4ff; border: 2px solid #667eea; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: left; }
+                .token-box label { font-size: 12px; font-weight: bold; color: #667eea; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; }
+                .token-val { font-family: 'Courier New', monospace; font-size: 13px; color: #333; background: white; border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; word-break: break-all; cursor: pointer; user-select: all; }
                 .copy-btn { background: #667eea; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 10px; width: 100%; transition: background 0.2s; }
                 .copy-btn:hover { background: #5a6fd8; }
                 .steps { background: #f9f9f9; border-radius: 12px; padding: 20px; margin: 20px 0; text-align: left; }
-                .steps h3 { font-size: 15px; color: #333; margin-bottom: 12px; }
+                .steps h3 { font-size: 15px; font-weight: bold; color: #333; margin-bottom: 4px; }
+                .steps .hint { font-size: 12px; color: #888; margin-bottom: 12px; }
                 .steps ol { padding-left: 18px; }
                 .steps li { font-size: 14px; color: #555; padding: 5px 0; line-height: 1.4; }
                 .steps code { background: #e8e8e8; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+                .steps strong { color: #333; }
+                .divider { border: none; border-top: 1px solid #eee; margin: 20px 0; }
                 .mcp-btn { display: inline-block; background: #4CAF50; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: bold; margin-top: 10px; transition: background 0.2s; }
                 .mcp-btn:hover { background: #43a047; }
             </style>
         </head>
         <body>
             <div class="container">
-                <div class="success-icon">✅</div>
+                <div class="success-icon">&#x2705;</div>
                 <h1 class="title">Authenticated!</h1>
-                <p class="subtitle">Your Google account is connected. Copy your Session ID to use with ChatGPT or other MCP clients.</p>
-                <div class="session-box">
-                    <label>Your Session ID</label>
-                    <div class="session-id" id="sid" onclick="copySessionId()">${state}</div>
-                    <button class="copy-btn" onclick="copySessionId()">Copy Session ID</button>
+                <p class="subtitle">Your Google account is connected. Use the options below to connect MCP clients.</p>
+
+                <div class="token-box">
+                    <label>API Token (your session key)</label>
+                    <div class="token-val" id="sid">${state}</div>
+                    <button class="copy-btn" onclick="copy('sid', this, 'Copy API Token')">Copy API Token</button>
                 </div>
+
+                <div class="token-box" style="border-color:#4CAF50;background:#f0fff4;">
+                    <label style="color:#4CAF50;">MCP URL with token embedded</label>
+                    <div class="token-val" id="mcpurl">${mcpTokenUrl}</div>
+                    <button class="copy-btn" style="background:#4CAF50;" onclick="copy('mcpurl', this, 'Copy MCP URL')">Copy MCP URL</button>
+                </div>
+
                 <div class="steps">
-                    <h3>To use with ChatGPT:</h3>
+                    <h3>ChatGPT (recommended: No Auth)</h3>
+                    <p class="hint">Use the embedded-token URL so no auth config is needed.</p>
                     <ol>
-                        <li>Copy your Session ID above</li>
-                        <li>In ChatGPT, add a new MCP connector with URL: <code>/mcp</code></li>
-                        <li>Set authentication to <strong>Bearer token</strong></li>
-                        <li>Paste your Session ID as the token</li>
+                        <li>Copy the <strong>MCP URL with token embedded</strong> above</li>
+                        <li>In ChatGPT, go to Settings &rarr; Connectors &rarr; Add custom connector</li>
+                        <li>Paste the URL &mdash; set Auth to <strong>None</strong></li>
+                        <li>Save and start chatting</li>
                     </ol>
                 </div>
-                <a href="/mcp?sessionId=${state}" class="mcp-btn">Connect to MCP directly</a>
+
+                <hr class="divider">
+
+                <div class="steps">
+                    <h3>ChatGPT (API Key auth)</h3>
+                    <p class="hint">If your ChatGPT plan requires explicit auth config.</p>
+                    <ol>
+                        <li>Connector URL: <code>${mcpUrl}</code></li>
+                        <li>Auth type: <strong>API Key</strong></li>
+                        <li>Header name: <code>Authorization</code></li>
+                        <li>API Key value: <code>Bearer ${state}</code></li>
+                    </ol>
+                </div>
+
+                <hr class="divider">
+
+                <div class="steps">
+                    <h3>Claude / Other MCP clients</h3>
+                    <p class="hint">Standard Bearer token auth.</p>
+                    <ol>
+                        <li>MCP endpoint: <code>${mcpUrl}</code></li>
+                        <li>Add header: <code>Authorization: Bearer ${state}</code></li>
+                    </ol>
+                </div>
+
+                <a href="/mcp?token=${state}" class="mcp-btn">Test MCP connection</a>
             </div>
             <script>
-                function copySessionId() {
-                    const sid = document.getElementById('sid').textContent;
-                    navigator.clipboard.writeText(sid).then(() => {
-                        const btn = document.querySelector('.copy-btn');
+                function copy(id, btn, label) {
+                    navigator.clipboard.writeText(document.getElementById(id).textContent.trim()).then(() => {
                         btn.textContent = 'Copied!';
                         btn.style.background = '#4CAF50';
-                        setTimeout(() => { btn.textContent = 'Copy Session ID'; btn.style.background = '#667eea'; }, 2000);
+                        setTimeout(() => { btn.textContent = label; btn.style.background = btn.dataset.orig || ''; }, 2000);
                     });
                 }
             </script>
