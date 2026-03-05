@@ -281,8 +281,9 @@ class AuthenticatedHTTPServer {
 
         throw new Error(`Unknown tool: ${name}`);
       } catch (err) {
+        console.error(`[tool:${name}] Error:`, err.message, err.stack?.split('\n')[1]?.trim());
         return {
-          content: [{ type: 'text', text: `Error: ${err.message}` }],
+          content: [{ type: 'text', text: `Error calling ${name}: ${err.message}` }],
           isError: true
         };
       }
@@ -1199,7 +1200,8 @@ sendSseError(res, status, error, loginUrl) {
 
         throw new Error(`Unknown tool: ${name}`);
       } catch (err) {
-        return { content: [{ type: 'text', text: `Error: ${err.message}` }], isError: true };
+        console.error(`[tool:${name}] Error:`, err.message, err.stack?.split('\n')[1]?.trim());
+        return { content: [{ type: 'text', text: `Error calling ${name}: ${err.message}` }], isError: true };
       }
     });
 
