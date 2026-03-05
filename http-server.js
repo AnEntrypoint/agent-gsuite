@@ -50,7 +50,7 @@ function getCorsOrigin(host, port) {
   return `http://${host}:${port}`;
 }
 
-const SESSION_FILE = process.env.SESSION_FILE || path.join(__dirname, 'sessions.json');
+const SESSION_FILE = process.env.SESSION_FILE || '/data/sessions.json';
 
 class AuthenticatedHTTPServer {
   constructor(options = {}) {
@@ -62,6 +62,7 @@ class AuthenticatedHTTPServer {
     this.userAuthMap = new Map();
     this.sseStreams = new Map();
     this.loadSessions();
+    this.reconstructAuthClients();
     this.initializeExpress();
     this.initializeRoutes();
     this.initializeMcpServer();
