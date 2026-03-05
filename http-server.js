@@ -164,6 +164,13 @@ class AuthenticatedHTTPServer {
     }));
     this.app.use(express.json({ limit: '4mb' }));
     this.app.use(express.urlencoded({ extended: true }));
+    this.app.use('/mcp', (req, res, next) => {
+      // Keep streamable MCP responses proxy-safe and decode-safe.
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.setHeader('Content-Encoding', 'identity');
+      next();
+    });
 
     this.app.use((req, res, next) => {
       console.log('[REQ]', req.method, req.path);
