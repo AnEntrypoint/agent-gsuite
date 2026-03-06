@@ -17,22 +17,22 @@ export async function handleDocsToolCall(name, args, auth) {
     }
     case 'docs_delete_section': {
       const result = await sections.deleteSection(auth, args.doc_id, args.section);
-      return { content: [{ type: 'text', text: `Deleted section "${result.deleted}"` }] };
+      return formatDocsResponse(`Deleted section "${result.deleted}"`);
     }
     case 'docs_move_section': {
       const result = await sections.moveSection(auth, args.doc_id, args.section, args.target);
-      return { content: [{ type: 'text', text: `Moved section "${result.moved}"` }] };
+      return formatDocsResponse(`Moved section "${result.moved}"`);
     }
     case 'docs_replace_section': {
       const result = await sections.replaceSection(auth, args.doc_id, args.section, args.content, args.preserve_heading !== false);
-      return { content: [{ type: 'text', text: `Replaced section "${result.replaced}" (heading preserved: ${result.preservedHeading})` }] };
+      return formatDocsResponse(`Replaced section "${result.replaced}" (heading preserved: ${result.preservedHeading})`);
     }
     case 'docs_image': {
       return handleDocsImageActions(name, args, auth);
     }
     case 'docs_insert_image': {
       const result = await media.insertImage(auth, args.doc_id, args.image_url, args.position || 'end', args.width, args.height);
-      return { content: [{ type: 'text', text: `Inserted image at index ${result.index}` }] };
+      return formatDocsResponse(`Inserted image at index ${result.index}`);
     }
     case 'docs_list_images': {
       const result = await media.listImages(auth, args.doc_id);
@@ -40,28 +40,28 @@ export async function handleDocsToolCall(name, args, auth) {
     }
     case 'docs_delete_image': {
       const result = await media.deleteImage(auth, args.doc_id, args.image_index);
-      return { content: [{ type: 'text', text: `Deleted image at index ${result.imageIndex}` }] };
+      return formatDocsResponse(`Deleted image at index ${result.imageIndex}`);
     }
     case 'docs_replace_image': {
       const result = await media.replaceImage(auth, args.doc_id, args.image_index, args.new_image_url, args.width, args.height);
-      return { content: [{ type: 'text', text: `Replaced image at index ${result.imageIndex}` }] };
+      return formatDocsResponse(`Replaced image at index ${result.imageIndex}`);
     }
     case 'docs_create': {
       const result = await docs.createDocument(auth, args.title);
-      return { content: [{ type: 'text', text: `Created document "${result.title}" with ID: ${result.docId}` }] };
+      return formatDocsResponse(`Created document "${result.title}" with ID: ${result.docId}`);
     }
     case 'docs_read': {
       const content = await docs.readDocument(auth, args.doc_id);
-      return { content: [{ type: 'text', text: content }] };
+      return formatDocsResponse(content);
     }
     case 'docs_edit': {
       const result = await docs.editDocument(auth, args.doc_id, args.old_text, args.new_text, args.replace_all || false);
       const msg = result.replacements === 1 ? `Replaced 1 occurrence` : `Replaced ${result.replacements} occurrences`;
-      return { content: [{ type: 'text', text: msg }] };
+      return formatDocsResponse(msg);
     }
     case 'docs_insert': {
       await docs.insertDocument(auth, args.doc_id, args.text, args.position || 'end');
-      return { content: [{ type: 'text', text: `Inserted text into document` }] };
+      return formatDocsResponse(`Inserted text into document`);
     }
     case 'docs_get_info': {
       const info = await docs.getDocumentInfo(auth, args.doc_id);
@@ -82,11 +82,11 @@ export async function handleDocsToolCall(name, args, auth) {
     }
     case 'docs_insert_table': {
       const result = await docs.insertTable(auth, args.doc_id, args.rows, args.cols, args.position || 'end');
-      return { content: [{ type: 'text', text: `Inserted ${result.rows}x${result.cols} table` }] };
+      return formatDocsResponse(`Inserted ${result.rows}x${result.cols} table`);
     }
     case 'docs_delete': {
       const result = await docs.deleteText(auth, args.doc_id, args.text, args.delete_all || false);
-      return { content: [{ type: 'text', text: `Deleted ${result.replacements} occurrence(s)` }] };
+      return formatDocsResponse(`Deleted ${result.replacements} occurrence(s)`);
     }
     case 'docs_get_structure': {
       const structure = await docs.getDocumentStructure(auth, args.doc_id);
@@ -94,7 +94,7 @@ export async function handleDocsToolCall(name, args, auth) {
     }
     case 'docs_batch': {
       const result = await docs.batchUpdate(auth, args.doc_id, args.operations);
-      return { content: [{ type: 'text', text: `Applied ${result.operationsApplied} operations` }] };
+      return formatDocsResponse(`Applied ${result.operationsApplied} operations`);
     }
     case 'drive_search': {
       const results = await docs.searchDrive(auth, args.query, args.type || 'all', args.max_results || 20);

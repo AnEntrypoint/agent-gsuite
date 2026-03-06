@@ -32,3 +32,8 @@ export function buildLabelConfig(args) {
   if (color) config.color = color;
   return config;
 }
+
+export function decodeBase64(data) {
+  if (!data) return '';
+  return Buffer.from(data, 'base64').toString('utf-8');
+}

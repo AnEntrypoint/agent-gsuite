@@ -1,8 +1,8 @@
-import { google } from 'googleapis';
+import { getSheetsClient } from './google-clients.js';
 import { parseColor, parseA1Range, colToNum } from './sheets-core.js';
 
 export async function formatRange(auth, sheetId, range, formatting) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const parsed = parseA1Range(range);
   if (!parsed) throw new Error(`Invalid range format: ${range}`);
@@ -137,7 +137,7 @@ export async function formatRange(auth, sheetId, range, formatting) {
 }
 
 export async function mergeCells(auth, sheetId, range, action = 'merge') {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const parsed = parseA1Range(range);
   if (!parsed) throw new Error(`Invalid range format: ${range}`);

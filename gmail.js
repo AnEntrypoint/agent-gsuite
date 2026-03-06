@@ -1,13 +1,9 @@
-import { google } from 'googleapis';
+import { getGmailClient } from './google-clients.js';
+import { decodeBase64 } from './handlers-utils.js';
 export { getLabels, createLabel, updateLabel, deleteLabel, listFilters, getFilter, createFilter, deleteFilter, replaceFilter, listMessageIdsByQuery, bulkModifyLabels, bulkModifyLabelsByQuery } from './gmail-manage.js';
 
 function getGmail(auth) {
-  return google.gmail({ version: 'v1', auth });
-}
-
-function decodeBase64(data) {
-  if (!data) return '';
-  return Buffer.from(data, 'base64').toString('utf-8');
+  return getGmailClient(auth);
 }
 
 function extractBody(payload) {

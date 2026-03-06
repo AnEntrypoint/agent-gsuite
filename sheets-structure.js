@@ -1,8 +1,8 @@
-import { google } from 'googleapis';
+import { getSheetsClient } from './google-clients.js';
 import { parseA1Range, colToNum } from './sheets-core.js';
 
 export async function sortRange(auth, sheetId, range, sortColumn, ascending = true) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const parsed = parseA1Range(range);
   if (!parsed) throw new Error(`Invalid range format: ${range}`);
@@ -41,7 +41,7 @@ export async function sortRange(auth, sheetId, range, sortColumn, ascending = tr
 }
 
 export async function modifyRowsColumns(auth, sheetId, sheetName, action, dimension, startIndex, count) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
   const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
@@ -76,7 +76,7 @@ export async function deleteRowsColumns(auth, sheetId, sheetName, dimension, sta
 }
 
 export async function setDimensionSize(auth, sheetId, sheetName, dimension, start, end, size) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
   const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
@@ -121,7 +121,7 @@ export async function setRowHeight(auth, sheetId, sheetName, startRow, endRow, h
 }
 
 export async function batchUpdate(auth, sheetId, operations) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const valueUpdates = [];
   const formatRequests = [];

@@ -1,7 +1,7 @@
-import { google } from 'googleapis';
+import { getGmailClient } from './google-clients.js';
 
 function getGmail(auth) {
-  return google.gmail({ version: 'v1', auth });
+  return getGmailClient(auth);
 }
 
 export async function getLabels(auth) {

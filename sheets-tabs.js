@@ -1,8 +1,8 @@
-import { google } from 'googleapis';
+import { getSheetsClient, getDriveClient } from './google-clients.js';
 
 export async function getSpreadsheetInfo(auth, sheetId) {
-  const sheets = google.sheets({ version: 'v4', auth });
-  const drive = google.drive({ version: 'v3', auth });
+  const sheets = getSheetsClient(auth);
+  const drive = getDriveClient(auth);
 
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
 

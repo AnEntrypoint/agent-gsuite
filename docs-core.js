@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { getDocsClient } from './google-clients.js';
 import { countOccurrences, getAllIndices } from './text-utils.js';
 
 export function extractText(content) {

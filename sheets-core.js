@@ -1,10 +1,10 @@
-import { google } from 'googleapis';
+import { getSheetsClient } from './google-clients.js';
 import { parseColor, parseA1Range, colToNum } from './sheets-core-utils.js';
 
 export { parseColor, parseA1Range, colToNum };
 
 export async function createSheet(auth, title) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
   const result = await sheets.spreadsheets.create({
     requestBody: { properties: { title } }
   });
@@ -12,7 +12,7 @@ export async function createSheet(auth, title) {
 }
 
 export async function readSheet(auth, sheetId, range = 'Sheet1') {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range
@@ -21,7 +21,7 @@ export async function readSheet(auth, sheetId, range = 'Sheet1') {
 }
 
 export async function editSheet(auth, sheetId, range, values) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
     range,
@@ -31,7 +31,7 @@ export async function editSheet(auth, sheetId, range, values) {
 }
 
 export async function insertSheet(auth, sheetId, range, values) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
   await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
     range,
@@ -41,7 +41,7 @@ export async function insertSheet(auth, sheetId, range, values) {
 }
 
 export async function getCell(auth, sheetId, cell) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
   const result = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range: cell
@@ -50,7 +50,7 @@ export async function getCell(auth, sheetId, cell) {
 }
 
 export async function setCell(auth, sheetId, cell, value) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
     range: cell,
@@ -99,7 +99,7 @@ export async function editCell(auth, sheetId, cell, oldText, newText, replaceAll
 }
 
 export async function findReplace(auth, sheetId, find, replace, sheetName = null) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const request = {
     findReplace: {
@@ -128,7 +128,7 @@ export async function findReplace(auth, sheetId, find, replace, sheetName = null
 }
 
 export async function clearRange(auth, sheetId, range, clearFormats = false) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   if (clearFormats) {
     const parsed = parseA1Range(range);
@@ -169,7 +169,7 @@ export async function clearRange(auth, sheetId, range, clearFormats = false) {
 }
 
 export async function getCellFormula(auth, sheetId, cell) {
-  const sheets = google.sheets({ version: 'v4', auth });
+  const sheets = getSheetsClient(auth);
 
   const result = await sheets.spreadsheets.get({
     spreadsheetId: sheetId,
