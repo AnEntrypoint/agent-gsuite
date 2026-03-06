@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+export { getLabels, createLabel, updateLabel, deleteLabel, listFilters, getFilter, createFilter, deleteFilter, replaceFilter, listMessageIdsByQuery, bulkModifyLabels, bulkModifyLabelsByQuery } from './gmail-manage.js';
 
 function getGmail(auth) {
   return google.gmail({ version: 'v1', auth });
@@ -6,13 +7,11 @@ function getGmail(auth) {
 
 function decodeBase64(data) {
   if (!data) return '';
-  const decoded = Buffer.from(data, 'base64').toString('utf-8');
-  return decoded;
+  return Buffer.from(data, 'base64').toString('utf-8');
 }
 
 function extractBody(payload) {
   let body = '';
-  
   if (payload.body && payload.body.data) {
     body = decodeBase64(payload.body.data);
   } else if (payload.parts) {
@@ -24,13 +23,10 @@ function extractBody(payload) {
         body = decodeBase64(part.body.data);
       } else if (part.parts) {
         const nestedBody = extractBody(part);
-        if (nestedBody && !body) {
-          body = nestedBody;
-        }
+        if (nestedBody && !body) body = nestedBody;
       }
     }
   }
-  
   return body;
 }
 
@@ -47,22 +43,12 @@ function extractHeaders(headers) {
 
 export async function listEmails(auth, maxResults = 20, query = null, labelIds = null) {
   const gmail = getGmail(auth);
-  
-  const params = {
-    userId: 'me',
-    maxResults
-  };
-  
+  const params = { userId: 'me', maxResults };
   if (query) params.q = query;
   if (labelIds) params.labelIds = Array.isArray(labelIds) ? labelIds : [labelIds];
-  
   const listRes = await gmail.users.messages.list(params);
   const messages = listRes.data.messages || [];
-  
-  if (messages.length === 0) {
-    return { emails: [], count: 0 };
-  }
-  
+  if (messages.length === 0) return { emails: [], count: 0 };
   const emails = await Promise.all(
     messages.map(async (msg) => {
       const detail = await gmail.users.messages.get({
@@ -71,9 +57,7 @@ export async function listEmails(auth, maxResults = 20, query = null, labelIds =
         format: 'metadata',
         metadataHeaders: ['From', 'To', 'Subject', 'Date']
       });
-      
       const headers = extractHeaders(detail.data.payload.headers);
-      
       return {
         id: msg.id,
         threadId: msg.threadId,
@@ -83,7 +67,6 @@ export async function listEmails(auth, maxResults = 20, query = null, labelIds =
       };
     })
   );
-  
   return { emails, count: emails.length };
 }
 
@@ -93,17 +76,10 @@ export async function searchEmails(auth, query, maxResults = 20) {
 
 export async function readEmail(auth, messageId, format = 'full') {
   const gmail = getGmail(auth);
-  
-  const res = await gmail.users.messages.get({
-    userId: 'me',
-    id: messageId,
-    format
-  });
-  
+  const res = await gmail.users.messages.get({ userId: 'me', id: messageId, format });
   const message = res.data;
   const headers = extractHeaders(message.payload.headers);
   const body = extractBody(message.payload);
-  
   return {
     id: message.id,
     threadId: message.threadId,
@@ -117,15 +93,8 @@ export async function readEmail(auth, messageId, format = 'full') {
 
 export async function getEmailAttachments(auth, messageId) {
   const gmail = getGmail(auth);
-  
-  const res = await gmail.users.messages.get({
-    userId: 'me',
-    id: messageId,
-    format: 'full'
-  });
-  
+  const res = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' });
   const attachments = [];
-  
   function findAttachments(payload) {
     if (payload.parts) {
       for (const part of payload.parts) {
@@ -137,334 +106,55 @@ export async function getEmailAttachments(auth, messageId) {
             size: part.body.size
           });
         }
-        if (part.parts) {
-          findAttachments(part);
-        }
+        if (part.parts) findAttachments(part);
       }
     }
   }
-  
   findAttachments(res.data.payload);
-  
   return { messageId, attachments };
 }
 
 export async function downloadAttachment(auth, messageId, attachmentId) {
   const gmail = getGmail(auth);
-  
-  const res = await gmail.users.messages.attachments.get({
-    userId: 'me',
-    messageId,
-    id: attachmentId
-  });
-  
-  return {
-    data: res.data.data,
-    size: res.data.size
-  };
-}
-
-export async function getLabels(auth) {
-  const gmail = getGmail(auth);
-  
-  const res = await gmail.users.labels.list({ userId: 'me' });
-  
-  return {
-    labels: (res.data.labels || []).map(label => ({
-      id: label.id,
-      name: label.name,
-      type: label.type,
-      messagesTotal: label.messagesTotal,
-      messagesUnread: label.messagesUnread,
-      threadsTotal: label.threadsTotal,
-      threadsUnread: label.threadsUnread,
-      labelListVisibility: label.labelListVisibility,
-      messageListVisibility: label.messageListVisibility,
-      color: label.color
-    }))
-  };
-}
-
-export async function createLabel(auth, requestBody) {
-  const gmail = getGmail(auth);
-
-  const res = await gmail.users.labels.create({
-    userId: 'me',
-    requestBody
-  });
-
-  return res.data;
-}
-
-export async function updateLabel(auth, labelId, requestBody) {
-  const gmail = getGmail(auth);
-
-  const res = await gmail.users.labels.patch({
-    userId: 'me',
-    id: labelId,
-    requestBody
-  });
-
-  return res.data;
-}
-
-export async function deleteLabel(auth, labelId) {
-  const gmail = getGmail(auth);
-
-  await gmail.users.labels.delete({
-    userId: 'me',
-    id: labelId
-  });
-
-  return { deleted: labelId };
-}
-
-export async function listFilters(auth) {
-  const gmail = getGmail(auth);
-
-  const res = await gmail.users.settings.filters.list({ userId: 'me' });
-  return { filters: res.data.filter || [] };
-}
-
-export async function getFilter(auth, filterId) {
-  const gmail = getGmail(auth);
-
-  const res = await gmail.users.settings.filters.get({
-    userId: 'me',
-    id: filterId
-  });
-
-  return res.data;
-}
-
-export async function createFilter(auth, criteria, action) {
-  const gmail = getGmail(auth);
-  const normalizedCriteria = normalizeFilterCriteriaInput(criteria || {});
-  const normalizedAction = normalizeFilterActionInput(action || {});
-
-  const res = await gmail.users.settings.filters.create({
-    userId: 'me',
-    requestBody: { criteria: normalizedCriteria, action: normalizedAction }
-  });
-
-  return res.data;
-}
-
-export async function deleteFilter(auth, filterId) {
-  const gmail = getGmail(auth);
-
-  await gmail.users.settings.filters.delete({
-    userId: 'me',
-    id: filterId
-  });
-
-  return { deleted: filterId };
-}
-
-export async function replaceFilter(auth, filterId, criteriaPatch = {}, actionPatch = {}) {
-  const current = await getFilter(auth, filterId);
-  const nextCriteria = { ...(current.criteria || {}), ...normalizeFilterCriteriaInput(criteriaPatch || {}) };
-  const nextAction = { ...(current.action || {}), ...normalizeFilterActionInput(actionPatch || {}) };
-  const created = await createFilter(auth, nextCriteria, nextAction);
-
-  let deleted = false;
-  try {
-    await deleteFilter(auth, filterId);
-    deleted = true;
-  } catch (err) {
-    return {
-      replaced: false,
-      oldFilterId: filterId,
-      newFilterId: created.id,
-      deletedOld: false,
-      warning: `Created replacement filter but failed to delete old filter: ${err.message}`
-    };
-  }
-
-  return {
-    replaced: true,
-    oldFilterId: filterId,
-    newFilterId: created.id,
-    deletedOld: deleted,
-    filter: created
-  };
-}
-
-export function normalizeFilterCriteriaInput(criteria = {}) {
-  const out = {};
-  if (criteria.from) out.from = criteria.from;
-  if (criteria.to) out.to = criteria.to;
-  if (criteria.subject) out.subject = criteria.subject;
-  if (criteria.query) out.query = criteria.query;
-  if (criteria.negated_query) out.negatedQuery = criteria.negated_query;
-  if (criteria.negatedQuery) out.negatedQuery = criteria.negatedQuery;
-  if (criteria.has_attachment !== undefined) out.hasAttachment = criteria.has_attachment;
-  if (criteria.hasAttachment !== undefined) out.hasAttachment = criteria.hasAttachment;
-  if (criteria.size !== undefined) out.size = criteria.size;
-  if (criteria.size_comparison) out.sizeComparison = criteria.size_comparison;
-  if (criteria.sizeComparison) out.sizeComparison = criteria.sizeComparison;
-  return out;
-}
-
-export function normalizeFilterActionInput(action = {}) {
-  const out = {};
-  if (action.add_label_ids) out.addLabelIds = action.add_label_ids;
-  if (action.addLabelIds) out.addLabelIds = action.addLabelIds;
-  if (action.remove_label_ids) out.removeLabelIds = action.remove_label_ids;
-  if (action.removeLabelIds) out.removeLabelIds = action.removeLabelIds;
-  if (action.forward) out.forward = action.forward;
-  return out;
+  const res = await gmail.users.messages.attachments.get({ userId: 'me', messageId, id: attachmentId });
+  return { data: res.data.data, size: res.data.size };
 }
 
 export async function sendEmail(auth, to, subject, body, cc = null, bcc = null) {
   const gmail = getGmail(auth);
-  
   const lines = [
     `To: ${to}`,
     `Subject: ${subject}`
   ];
-  
   if (cc) lines.push(`Cc: ${cc}`);
   if (bcc) lines.push(`Bcc: ${bcc}`);
-  
   lines.push('Content-Type: text/plain; charset=utf-8');
   lines.push('');
   lines.push(body);
-  
   const message = lines.join('\r\n');
   const encoded = Buffer.from(message).toString('base64url');
-  
-  const res = await gmail.users.messages.send({
-    userId: 'me',
-    requestBody: {
-      raw: encoded
-    }
-  });
-  
-  return {
-    id: res.data.id,
-    threadId: res.data.threadId,
-    labelIds: res.data.labelIds
-  };
+  const res = await gmail.users.messages.send({ userId: 'me', requestBody: { raw: encoded } });
+  return { id: res.data.id, threadId: res.data.threadId, labelIds: res.data.labelIds };
 }
 
 export async function deleteEmail(auth, messageId) {
   const gmail = getGmail(auth);
-  
-  await gmail.users.messages.delete({
-    userId: 'me',
-    id: messageId
-  });
-  
+  await gmail.users.messages.delete({ userId: 'me', id: messageId });
   return { deleted: messageId };
 }
 
 export async function trashEmail(auth, messageId) {
   const gmail = getGmail(auth);
-  
-  const res = await gmail.users.messages.trash({
-    userId: 'me',
-    id: messageId
-  });
-  
-  return {
-    id: res.data.id,
-    threadId: res.data.threadId,
-    labelIds: res.data.labelIds
-  };
+  const res = await gmail.users.messages.trash({ userId: 'me', id: messageId });
+  return { id: res.data.id, threadId: res.data.threadId, labelIds: res.data.labelIds };
 }
 
 export async function modifyLabels(auth, messageId, addLabels = [], removeLabels = []) {
   const gmail = getGmail(auth);
-  
   const res = await gmail.users.messages.modify({
     userId: 'me',
     id: messageId,
-    requestBody: {
-      addLabelIds: addLabels,
-      removeLabelIds: removeLabels
-    }
+    requestBody: { addLabelIds: addLabels, removeLabelIds: removeLabels }
   });
-  
-  return {
-    id: res.data.id,
-    threadId: res.data.threadId,
-    labelIds: res.data.labelIds
-  };
-}
-
-function chunkArray(items, chunkSize) {
-  const chunks = [];
-  for (let i = 0; i < items.length; i += chunkSize) {
-    chunks.push(items.slice(i, i + chunkSize));
-  }
-  return chunks;
-}
-
-export async function listMessageIdsByQuery(auth, query, maxResults = 2000) {
-  const gmail = getGmail(auth);
-  const pageSize = Math.min(maxResults, 500);
-  let pageToken = undefined;
-  const ids = [];
-
-  while (ids.length < maxResults) {
-    const listRes = await gmail.users.messages.list({
-      userId: 'me',
-      q: query,
-      maxResults: Math.min(pageSize, maxResults - ids.length),
-      pageToken
-    });
-
-    const messages = listRes.data.messages || [];
-    for (const message of messages) {
-      ids.push(message.id);
-    }
-
-    pageToken = listRes.data.nextPageToken;
-    if (!pageToken || messages.length === 0) break;
-  }
-
-  return { ids, count: ids.length };
-}
-
-export async function bulkModifyLabels(auth, messageIds = [], addLabels = [], removeLabels = []) {
-  const gmail = getGmail(auth);
-  if (!Array.isArray(messageIds) || messageIds.length === 0) {
-    return { matched: 0, processed: 0, failedBatches: 0 };
-  }
-
-  const chunks = chunkArray(messageIds, 1000);
-  let processed = 0;
-  let failedBatches = 0;
-
-  for (const ids of chunks) {
-    try {
-      await gmail.users.messages.batchModify({
-        userId: 'me',
-        requestBody: {
-          ids,
-          addLabelIds: addLabels,
-          removeLabelIds: removeLabels
-        }
-      });
-      processed += ids.length;
-    } catch {
-      failedBatches += 1;
-    }
-  }
-
-  return {
-    matched: messageIds.length,
-    processed,
-    failedBatches
-  };
-}
-
-export async function bulkModifyLabelsByQuery(auth, query, addLabels = [], removeLabels = [], maxResults = 2000) {
-  const listed = await listMessageIdsByQuery(auth, query, maxResults);
-  const modified = await bulkModifyLabels(auth, listed.ids, addLabels, removeLabels);
-  return {
-    query,
-    ...modified
-  };
+  return { id: res.data.id, threadId: res.data.threadId, labelIds: res.data.labelIds };
 }
