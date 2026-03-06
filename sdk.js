@@ -1,10 +1,6 @@
 import * as docs from './docs.js';
 import * as sheets from './sheets.js';
-import * as sections from './docs-sections.js';
-import * as media from './docs-media.js';
-import * as scripts from './scripts.js';
 import * as gmail from './gmail.js';
-import { google } from 'googleapis';
 
 const DEFAULT_SCOPES = [
   'https://www.googleapis.com/auth/documents',
@@ -19,43 +15,52 @@ function createClient(auth, userContext = {}) {
     auth,
     userContext: userContext || {},
     docs: {
-      get: (docId) => docs.getDoc(auth, docId, userContext),
-      read: (docId) => docs.readDoc(auth, docId, userContext),
-      create: (title) => docs.createDoc(auth, title, userContext),
-      edit: (docId, oldText, newText) => docs.editDoc(auth, docId, oldText, newText, userContext),
-      insert: (docId, text, position) => docs.insertText(auth, docId, text, position, userContext),
+      read: (docId) => docs.readDocument(auth, docId, userContext),
+      create: (title) => docs.createDocument(auth, title, userContext),
+      info: (docId) => docs.getDocumentInfo(auth, docId, userContext),
+      list: () => docs.listDocuments(auth, userContext),
+      search: (query) => docs.searchDrive(auth, query, userContext),
+      edit: (docId, oldText, newText) => docs.editDocument(auth, docId, oldText, newText, userContext),
+      insert: (docId, text, position) => docs.insertDocument(auth, docId, text, position, userContext),
       delete: (docId, text, deleteAll) => docs.deleteText(auth, docId, text, deleteAll, userContext),
-      format: (docId, searchText, format) => docs.formatText(auth, docId, searchText, format, userContext),
-      batch: (docId, operations) => docs.batchUpdate(auth, docId, operations, userContext)
+      format: (docId, searchText, format) => docs.formatDocument(auth, docId, searchText, format, userContext),
+      batch: (docId, operations) => docs.batchUpdate(auth, docId, operations, userContext),
+      sections: {
+        get: (docId) => docs.getSections(auth, docId, userContext),
+        delete: (docId, section) => docs.deleteSection(auth, docId, section, userContext),
+        move: (docId, section, target) => docs.moveSection(auth, docId, section, target, userContext),
+        replace: (docId, section, content) => docs.replaceSection(auth, docId, section, content, userContext)
+      },
+      media: {
+        insert: (docId, imageUrl, position, width, height) => docs.insertImage(auth, docId, imageUrl, position, width, height, userContext),
+        list: (docId) => docs.listImages(auth, docId, userContext),
+        delete: (docId, imageIndex) => docs.deleteImage(auth, docId, imageIndex, userContext),
+        replace: (docId, imageIndex, imageUrl, width, height) => docs.replaceImage(auth, docId, imageIndex, imageUrl, width, height, userContext)
+      }
     },
     sheets: {
       create: (title) => sheets.createSheet(auth, title, userContext),
       read: (sheetId, range) => sheets.readSheet(auth, sheetId, range, userContext),
+      info: (sheetId) => sheets.getSpreadsheetInfo(auth, sheetId, userContext),
+      list: () => sheets.listSpreadsheets(auth, userContext),
       edit: (sheetId, range, values) => sheets.editSheet(auth, sheetId, range, values, userContext),
-      insert: (sheetId, values, range) => sheets.insertRows(auth, sheetId, values, range, userContext),
+      insert: (sheetId, values, range) => sheets.insertSheet(auth, sheetId, values, range, userContext),
       getCell: (sheetId, cell) => sheets.getCell(auth, sheetId, cell, userContext),
       setCell: (sheetId, cell, value) => sheets.setCell(auth, sheetId, cell, value, userContext),
-      batch: (sheetId, ops) => sheets.batchUpdate(auth, sheetId, ops, userContext)
-    },
-    sections: {
-      get: (docId) => sections.getSections(auth, docId, userContext),
-      delete: (docId, section) => sections.deleteSection(auth, docId, section, userContext),
-      move: (docId, section, target) => sections.moveSection(auth, docId, section, target, userContext),
-      replace: (docId, section, content) => sections.replaceSection(auth, docId, section, content, userContext)
-    },
-    media: {
-      insert: (docId, imageUrl, position, width, height) => media.insertImage(auth, docId, imageUrl, position, width, height, userContext),
-      list: (docId) => media.listImages(auth, docId, userContext),
-      delete: (docId, imageIndex) => media.deleteImage(auth, docId, imageIndex, userContext),
-      replace: (docId, imageIndex, imageUrl, width, height) => media.replaceImage(auth, docId, imageIndex, imageUrl, width, height, userContext)
-    },
-    scripts: {
-      create: (sheetId, scriptName) => scripts.createScript(auth, sheetId, scriptName, userContext),
-      list: (sheetId) => scripts.listScripts(auth, sheetId, userContext),
-      read: (sheetId, script) => scripts.readScript(auth, sheetId, script, userContext),
-      write: (sheetId, script, fileName, content) => scripts.writeScript(auth, sheetId, script, fileName, content, userContext),
-      delete: (sheetId, script) => scripts.deleteScript(auth, sheetId, script, userContext),
-      run: (sheetId, script, functionName, parameters) => scripts.runScript(auth, sheetId, script, functionName, parameters, userContext)
+      batch: (sheetId, ops) => sheets.batchUpdate(auth, sheetId, ops, userContext),
+      tabs: {
+        add: (sheetId, name) => sheets.addSheetTab(auth, sheetId, name, userContext),
+        delete: (sheetId, name) => sheets.deleteSheetTab(auth, sheetId, name, userContext),
+        rename: (sheetId, oldName, newName) => sheets.renameSheetTab(auth, sheetId, oldName, newName, userContext)
+      },
+      scripts: {
+        create: (sheetId, scriptName) => sheets.createScript(auth, sheetId, scriptName, userContext),
+        list: (sheetId) => sheets.listScripts(auth, sheetId, userContext),
+        read: (sheetId, script) => sheets.readScript(auth, sheetId, script, userContext),
+        write: (sheetId, script, fileName, content) => sheets.writeScript(auth, sheetId, script, fileName, content, userContext),
+        delete: (sheetId, script) => sheets.deleteScript(auth, sheetId, script, userContext),
+        run: (sheetId, script, functionName, parameters) => sheets.runScript(auth, sheetId, script, functionName, parameters, userContext)
+      }
     },
     gmail: {
       list: (query, maxResults) => gmail.listEmails(auth, query, maxResults, userContext),
@@ -89,7 +94,14 @@ function createTokenClient(accessToken) {
 
 async function callTool(toolName, parameters, auth, userContext = {}) {
   const client = createClient(auth, userContext);
-  const [namespace, operation] = toolName.split('_', 2);
+  const parts = toolName.split('_');
+  
+  if (parts.length < 2) {
+    throw new Error(`Invalid tool name: ${toolName}`);
+  }
+  
+  const namespace = parts[0];
+  const operation = parts.slice(1).join('_');
   
   if (client[namespace] && typeof client[namespace][operation] === 'function') {
     return client[namespace][operation](...Object.values(parameters));
