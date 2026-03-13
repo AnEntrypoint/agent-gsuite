@@ -2,7 +2,7 @@ import { getDocsClient } from './google-clients.js';
 import { readDocument, extractText, countOccurrences, getAllIndices, parseColor } from './docs-core.js';
 
 export async function editDocument(auth, docId, oldText, newText, replaceAll = false) {
-  const text = await readDocument(auth, docId);
+  const { text } = await readDocument(auth, docId);
   const count = countOccurrences(text, oldText);
 
   if (count === 0) {

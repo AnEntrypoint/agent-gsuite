@@ -92,8 +92,8 @@ export async function readResource(auth, uri) {
   const docMatch = uri.match(/^docmcp:\/\/docs\/document\/(.+)$/);
   if (docMatch) {
     const docId = decodeURIComponent(docMatch[1]);
-    const content = await docs.readDocument(auth, docId);
-    return textResource(uri, content);
+    const result = await docs.readDocument(auth, docId);
+    return textResource(uri, result.text);
   }
 
   const sheetRangeMatch = uri.match(/^docmcp:\/\/sheets\/spreadsheet\/([^/]+)\/range\/(.+)$/);

@@ -2,7 +2,7 @@ import { getDocsClient } from './google-clients.js';
 import { readDocument, getAllIndices, parseColor } from './docs-core.js';
 
 export async function formatDocument(auth, docId, searchText, formatting) {
-  const text = await readDocument(auth, docId);
+  const { text } = await readDocument(auth, docId);
   const indices = getAllIndices(text, searchText);
 
   if (indices.length === 0) {

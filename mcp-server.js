@@ -43,9 +43,9 @@ const TOOLS = enrichToolsForApps([
   ...SEARCH_TOOLS
 ]);
 
-export async function dispatchToolCall(name, args, auth) {
+export async function dispatchToolCall(name, args, auth, context) {
   return withAuth(async () => {
-    const docsResult = await handleDocsToolCall(name, args, auth);
+    const docsResult = await handleDocsToolCall(name, args, auth, context);
     if (docsResult) return docsResult;
 
     const sheetsResult = await handleSheetsToolCall(name, args, auth);
@@ -76,10 +76,15 @@ export async function dispatchToolCall(name, args, auth) {
   });
 }
 
-export function setupMcpHandlers(server, getAuth) {
+export function setupMcpHandlers(server, getAuth, hooks = {}) {
+  const { trackDoc, listSessionDocs } = hooks;
+
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: listStaticResources() }));
+  server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    const sessionDocs = listSessionDocs ? listSessionDocs() : [];
+    return { resources: [...listStaticResources(), ...sessionDocs] };
+  });
 
   server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({ resourceTemplates: listResourceTemplates() }));
 
@@ -98,7 +103,13 @@ export function setupMcpHandlers(server, getAuth) {
     const { name, arguments: args } = request.params;
     try {
       const auth = await getAuth();
-      return await dispatchToolCall(name, args, auth);
+      const context = trackDoc ? {
+        trackDoc: (docId, title) => {
+          trackDoc(docId, title);
+          try { server.sendResourceListChanged(); } catch (e) {}
+        }
+      } : undefined;
+      return await dispatchToolCall(name, args, auth, context);
     } catch (err) {
       console.error(`[tool:${name}] Error:`, err.message);
       const msg = isAuthError(err)
@@ -112,11 +123,11 @@ export function setupMcpHandlers(server, getAuth) {
   });
 }
 
-export function buildMcpServer(getAuth) {
+export function buildMcpServer(getAuth, hooks) {
   const server = new Server(
     { name: SERVER_NAME, version: SERVER_VERSION },
     { capabilities: { tools: {}, resources: {} } }
   );
-  setupMcpHandlers(server, getAuth);
+  setupMcpHandlers(server, getAuth, hooks);
   return server;
 }

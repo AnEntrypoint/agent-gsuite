@@ -5,7 +5,7 @@ import { handleSheetsToolCall } from './handlers-sheets.js';
 import { handleGmailToolCall } from './handlers-gmail.js';
 import { formatDocsResponse, formatJsonResponse, buildFormattingConfig } from './handlers-utils.js';
 
-export async function handleDocsToolCall(name, args, auth) {
+export async function handleDocsToolCall(name, args, auth, context) {
   switch (name) {
     case 'docs_get_sections': {
       const result = await sections.getSections(auth, args.doc_id);
@@ -70,11 +70,14 @@ export async function handleDocsToolCall(name, args, auth) {
     }
     case 'docs_create': {
       const result = await docs.createDocument(auth, args.title);
+      if (context) context.trackDoc(result.docId, result.title);
       return formatDocsResponse(`Created document "${result.title}" with ID: ${result.docId}`);
     }
     case 'docs_read': {
-      const content = await docs.readDocument(auth, args.doc_id);
-      return formatDocsResponse(content);
+      const result = await docs.readDocument(auth, args.doc_id);
+      if (context) context.trackDoc(result.docId, result.title);
+      const uri = `docmcp://docs/document/${result.docId}`;
+      return { content: [{ type: 'resource', resource: { uri, mimeType: 'text/plain', text: result.text } }] };
     }
     case 'docs_edit': {
       const result = await docs.editDocument(auth, args.doc_id, args.old_text, args.new_text, args.replace_all || false);

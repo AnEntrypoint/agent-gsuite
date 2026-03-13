@@ -29,7 +29,7 @@ export { countOccurrences, getAllIndices, parseColor } from './text-utils.js';
 export async function readDocument(auth, docId) {
   const docs = getDocsClient(auth);
   const result = await docs.documents.get({ documentId: docId });
-  return extractText(result.data.body.content);
+  return { text: extractText(result.data.body.content), title: result.data.title, docId: result.data.documentId };
 }
 
 export async function createDocument(auth, title) {

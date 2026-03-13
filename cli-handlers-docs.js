@@ -23,7 +23,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
 
   if (cmd === 'read') {
     const result = await docs.readDocument(auth, docId);
-    console.log(result);
+    console.log(result.text);
     return;
   }
 

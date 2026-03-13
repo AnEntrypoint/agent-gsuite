@@ -7,6 +7,7 @@ export class MCPTransport {
     this.oauthServer = oauthServer;
     this.serverMap = new Map();
     this.transportMap = new Map();
+    this.sessionDocs = new Map();
   }
 
   async handleConnection(req, res, sessionId) {
@@ -29,16 +30,36 @@ export class MCPTransport {
           if (!auth) throw new Error('Authentication required. Visit /login to authenticate.');
           return auth;
         };
+        const hooks = {
+          trackDoc: (docId, title) => {
+            if (!this.sessionDocs.has(sessionId)) this.sessionDocs.set(sessionId, new Map());
+            this.sessionDocs.get(sessionId).set(docId, {
+              uri: `docmcp://docs/document/${docId}`,
+              title: title || docId
+            });
+          },
+          listSessionDocs: () => {
+            const map = this.sessionDocs.get(sessionId);
+            if (!map) return [];
+            return Array.from(map.values()).map(d => ({
+              uri: d.uri,
+              name: d.title,
+              title: d.title,
+              mimeType: 'text/plain'
+            }));
+          }
+        };
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => sessionId,
           enableJsonResponse: true
         });
-        const server = buildMcpServer(getAuth);
+        const server = buildMcpServer(getAuth, hooks);
         await server.connect(transport);
         transport.onclose = () => {
           try { server.close(); } catch (e) {}
           this.transportMap?.delete(sessionId);
           this.serverMap?.delete(sessionId);
+          this.sessionDocs?.delete(sessionId);
         };
         this.transportMap.set(sessionId, transport);
         this.serverMap.set(sessionId, server);
