@@ -108,10 +108,10 @@ export async function handleDriveCommand(auth, args) {
       process.exit(1);
     }
     const { callTool } = await import('./sdk.js');
-    const result = await callTool(auth, 'drive_search', {
+    const result = await callTool('drive_search', {
       query,
       max_results: parseInt(opts['max-results'] || '20', 10)
-    });
+    }, auth);
     console.log(JSON.stringify(result, null, 2));
     return;
   }

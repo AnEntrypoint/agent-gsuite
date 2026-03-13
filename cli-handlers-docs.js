@@ -10,7 +10,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       console.error('Error: title required');
       process.exit(1);
     }
-    const result = await docs.createDoc(auth, title);
+    const result = await docs.createDocument(auth, title);
     console.log(`Created document "${result.title}" with ID: ${result.documentId}`);
     return;
   }
@@ -22,7 +22,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
   }
 
   if (cmd === 'read') {
-    const result = await docs.readDoc(auth, docId);
+    const result = await docs.readDocument(auth, docId);
     console.log(result.body);
     return;
   }
@@ -32,7 +32,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       console.error('Error: --old and --new required');
       process.exit(1);
     }
-    const result = await docs.editDoc(auth, docId, opts.old, opts.new, opts['replace-all']);
+    const result = await docs.editDocument(auth, docId, opts.old, opts.new, opts['replace-all']);
     console.log(`Updated ${result.modified} instances`);
     return;
   }
@@ -43,19 +43,19 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       console.error('Error: --text required');
       process.exit(1);
     }
-    const result = await docs.insertText(auth, docId, text, opts.position || opts.after, opts.index);
+    const result = await docs.insertDocument(auth, docId, text, opts.position || opts.after, opts.index);
     console.log(`Inserted text at position ${result.insertedIndex}`);
     return;
   }
 
   if (cmd === 'list') {
-    const result = await docs.listDocs(auth, parseInt(opts['max-results'] || '20', 10), opts.query);
+    const result = await docs.listDocuments(auth, parseInt(opts['max-results'] || '20', 10), opts.query);
     console.log(JSON.stringify(result.documents, null, 2));
     return;
   }
 
   if (cmd === 'get-info') {
-    const result = await docs.getDocInfo(auth, docId);
+    const result = await docs.getDocumentInfo(auth, docId);
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -69,7 +69,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
     if (opts.bold !== undefined) formatting.bold = opts.bold === 'true';
     if (opts.italic !== undefined) formatting.italic = opts.italic === 'true';
     if (opts.heading) formatting.heading = opts.heading;
-    const result = await docs.formatText(auth, docId, opts.search, formatting);
+    const result = await docs.formatDocument(auth, docId, opts.search, formatting);
     console.log(`Formatted ${result.formatted} instances`);
     return;
   }
@@ -95,7 +95,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
   }
 
   if (cmd === 'get-structure') {
-    const result = await docs.getDocStructure(auth, docId);
+    const result = await docs.getDocumentStructure(auth, docId);
     console.log(JSON.stringify(result, null, 2));
     return;
   }

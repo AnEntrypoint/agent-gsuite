@@ -149,3 +149,12 @@ export async function replaceImage(auth, docId, imageIndex, newImageUrl, width =
 
   return { replaced: true, imageIndex, newImageUrl };
 }
+
+
+export async function handleImage(auth, docId, opts) {
+  if (opts.action === 'insert') return insertImage(auth, docId, opts['image-url'], opts.position, opts.width, opts.height);
+  if (opts.action === 'list') return listImages(auth, docId);
+  if (opts.action === 'delete') return deleteImage(auth, docId, parseInt(opts['image-index'], 10));
+  if (opts.action === 'replace') return replaceImage(auth, docId, parseInt(opts['image-index'], 10), opts['image-url'], opts.width, opts.height);
+  throw new Error('Unknown image action: ' + opts.action + '. Use: insert, list, delete, replace');
+}

@@ -138,3 +138,11 @@ export async function replaceSection(auth, docId, sectionIdentifier, newContent,
 
   return { replaced: section.name, preservedHeading: preserveHeading };
 }
+
+
+export async function handleSection(auth, docId, opts) {
+  if (opts.action === 'delete') return deleteSection(auth, docId, opts.section);
+  if (opts.action === 'move') return moveSection(auth, docId, opts.section, opts.target);
+  if (opts.action === 'replace') return replaceSection(auth, docId, opts.section, opts.content);
+  throw new Error('Unknown section action: ' + opts.action + '. Use: delete, move, replace');
+}

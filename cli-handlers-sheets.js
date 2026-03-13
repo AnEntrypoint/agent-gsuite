@@ -16,7 +16,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
   }
 
   if (cmd === 'list') {
-    const result = await sheets.listSheets(auth, parseInt(opts['max-results'] || '20', 10), opts.query);
+    const result = await sheets.listSpreadsheets(auth, parseInt(opts['max-results'] || '20', 10), opts.query);
     console.log(JSON.stringify(result.spreadsheets, null, 2));
     return;
   }
@@ -29,7 +29,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
 
   if (cmd === 'read') {
     const range = opts.range || 'Sheet1';
-    const result = await sheets.readRange(auth, sheetId, range);
+    const result = await sheets.readSheet(auth, sheetId, range);
     console.log(JSON.stringify(result.values, null, 2));
     return;
   }
@@ -39,13 +39,13 @@ export async function handleSheetsCommand(auth, args, sheets) {
       console.error('Error: --range and --values required');
       process.exit(1);
     }
-    const result = await sheets.editRange(auth, sheetId, opts.range, parseJson(opts.values));
+    const result = await sheets.editSheet(auth, sheetId, opts.range, parseJson(opts.values));
     console.log(`Updated ${result.valuesUpdated} cells`);
     return;
   }
 
   if (cmd === 'get-info') {
-    const result = await sheets.getSheetInfo(auth, sheetId);
+    const result = await sheets.getSpreadsheetInfo(auth, sheetId);
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -55,7 +55,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
       console.error('Error: --values required');
       process.exit(1);
     }
-    const result = await sheets.insertRows(auth, sheetId, parseJson(opts.values));
+    const result = await sheets.insertSheet(auth, sheetId, parseJson(opts.values));
     console.log(`Inserted ${result.inserted} rows`);
     return;
   }
@@ -85,7 +85,11 @@ export async function handleSheetsCommand(auth, args, sheets) {
       console.error('Error: --action required (add, delete, rename)');
       process.exit(1);
     }
-    const result = await sheets.handleSheetTab(auth, sheetId, opts);
+    let result;
+    if (opts.action === 'add') result = await sheets.addSheetTab(auth, sheetId, opts.name);
+    else if (opts.action === 'delete') result = await sheets.deleteSheetTab(auth, sheetId, opts.name);
+    else if (opts.action === 'rename') result = await sheets.renameSheetTab(auth, sheetId, opts['old-name'] || opts.name, opts['new-name']);
+    else { console.error('Error: --action must be add, delete, or rename'); process.exit(1); }
     console.log(JSON.stringify(result, null, 2));
     return;
   }

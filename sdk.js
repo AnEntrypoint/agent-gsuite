@@ -1,6 +1,8 @@
 import * as docs from './docs.js';
 import * as sheets from './sheets.js';
 import * as gmail from './gmail.js';
+import * as scripts from './scripts.js';
+import { OAuth2Client, GoogleAuth } from 'google-auth-library';
 
 const DEFAULT_SCOPES = [
   'https://www.googleapis.com/auth/documents',
@@ -68,25 +70,55 @@ function createClient(auth, userContext = {}) {
       read: (messageId) => gmail.readEmail(auth, messageId, userContext),
       send: (to, subject, body, cc, bcc) => gmail.sendEmail(auth, to, subject, body, cc, bcc, userContext),
       delete: (messageId) => gmail.deleteEmail(auth, messageId, userContext),
-      trash: (messageId) => gmail.trashEmail(auth, messageId, userContext)
+      trash: (messageId) => gmail.trashEmail(auth, messageId, userContext),
+      modify: (messageId, addLabels, removeLabels) => gmail.modifyLabels(auth, messageId, addLabels, removeLabels, userContext),
+      labels: {
+        list: () => gmail.getLabels(auth),
+        create: (requestBody) => gmail.createLabel(auth, requestBody),
+        update: (labelId, requestBody) => gmail.updateLabel(auth, labelId, requestBody),
+        delete: (labelId) => gmail.deleteLabel(auth, labelId),
+        bulkModify: (messageIds, addLabels, removeLabels) => gmail.bulkModifyLabels(auth, messageIds, addLabels, removeLabels),
+      },
+      filters: {
+        list: () => gmail.listFilters(auth),
+        get: (filterId) => gmail.getFilter(auth, filterId),
+        create: (criteria, action) => gmail.createFilter(auth, criteria, action),
+        delete: (filterId) => gmail.deleteFilter(auth, filterId),
+        replace: (filterId, criteriaPatch, actionPatch) => gmail.replaceFilter(auth, filterId, criteriaPatch, actionPatch),
+      },
+      attachments: {
+        list: (messageId) => gmail.getEmailAttachments(auth, messageId),
+        download: (messageId, attachmentId) => gmail.downloadAttachment(auth, messageId, attachmentId),
+      }
+    },
+    scripts: {
+      create: (sheetId, name) => scripts.createScript(auth, sheetId, name, userContext),
+      list: (sheetId) => scripts.listScripts(auth, sheetId, userContext),
+      read: (sheetId, id) => scripts.readScript(auth, sheetId, id, userContext),
+      write: (sheetId, id, file, content) => scripts.writeScript(auth, sheetId, id, file, content, userContext),
+      delete: (sheetId, id) => scripts.deleteScript(auth, sheetId, id, userContext),
+      run: (sheetId, id, fn, params) => scripts.runScript(auth, sheetId, id, fn, params, userContext),
+      search: (query, max) => scripts.searchScripts(auth, query, max, userContext),
+      sync: (sheetId) => scripts.syncScripts(auth, sheetId, userContext),
+    },
+    drive: {
+      search: (query) => docs.searchDrive(auth, query, userContext),
+      list: () => docs.listDocuments(auth, userContext),
     }
   };
 }
 
 function createOAuthClient(tokens, clientId, clientSecret) {
-  const { OAuth2Client } = require('google-auth-library');
   const oauth2Client = new OAuth2Client(clientId, clientSecret);
   oauth2Client.setCredentials(tokens);
   return oauth2Client;
 }
 
 function createADCClient(scopes = DEFAULT_SCOPES) {
-  const { GoogleAuth } = require('google-auth-library');
   return new GoogleAuth({ scopes });
 }
 
 function createTokenClient(accessToken) {
-  const { OAuth2Client } = require('google-auth-library');
   const oauth2Client = new OAuth2Client();
   oauth2Client.setCredentials({ access_token: accessToken });
   return oauth2Client;
