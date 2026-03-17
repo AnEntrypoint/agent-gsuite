@@ -1,5 +1,5 @@
 import * as sheets from './sheets.js';
-import { formatJsonResponse } from './handlers-utils.js';
+import { formatJsonResponse, formatDocsResponse } from './handlers-utils.js';
 import * as scripts from './scripts.js';
 
 export async function handleSheetsToolCall(name, args, auth) {
