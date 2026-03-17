@@ -106,6 +106,9 @@ export async function runScript(auth, sheetId, scriptIdentifier, functionName, p
       await removeScriptFromTab(auth, sheetId, scriptEntry.scriptId);
       throw new Error(`Script "${scriptEntry.name}" no longer exists. Tracking entry removed.`);
     }
+    if (e.code === 403) {
+      throw new Error(`Script execution forbidden (403). Ensure you are the script owner — devMode only works for the owner. Non-owners need the script deployed as an API executable.`);
+    }
     throw e;
   }
 
@@ -114,10 +117,14 @@ export async function runScript(auth, sheetId, scriptIdentifier, functionName, p
     throw new Error(`Script error: ${err.message || JSON.stringify(err)}`);
   }
 
-  return { 
-    executed: true, 
-    function: functionName, 
-    result: response.data.response?.result ?? null 
+  if (response.data.done === false) {
+    throw new Error(`Script execution did not complete (done=false). The script may have hit a quota limit or timeout.`);
+  }
+
+  return {
+    executed: true,
+    function: functionName,
+    result: response.data.response?.result ?? null
   };
 }
 
