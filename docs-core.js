@@ -1,5 +1,4 @@
-import { google } from 'googleapis';
-import { getDocsClient } from './google-clients.js';
+import { getDocsClient, getDriveClient } from './google-clients.js';
 import { countOccurrences, getAllIndices } from './text-utils.js';
 
 export function extractText(content) {
@@ -37,13 +36,13 @@ export function parseColor(colorStr) {
 }
 
 export async function readDocument(auth, docId) {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const result = await docs.documents.get({ documentId: docId });
   return extractText(result.data.body.content);
 }
 
 export async function createDocument(auth, title) {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const result = await docs.documents.create({
     requestBody: { title }
   });
@@ -51,8 +50,8 @@ export async function createDocument(auth, title) {
 }
 
 export async function getDocumentInfo(auth, docId) {
-  const docs = google.docs({ version: 'v1', auth });
-  const drive = google.drive({ version: 'v3', auth });
+  const docs = getDocsClient(auth);
+  const drive = getDriveClient(auth);
 
   const doc = await docs.documents.get({ documentId: docId });
   
@@ -77,7 +76,7 @@ export async function getDocumentInfo(auth, docId) {
 }
 
 export async function listDocuments(auth, maxResults = 20, query = null) {
-  const drive = google.drive({ version: 'v3', auth });
+  const drive = getDriveClient(auth);
 
   let q = "mimeType='application/vnd.google-apps.document' and trashed=false";
   if (query) {
@@ -95,7 +94,7 @@ export async function listDocuments(auth, maxResults = 20, query = null) {
 }
 
 export async function getDocumentStructure(auth, docId) {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const doc = await docs.documents.get({ documentId: docId });
 
   const structure = [];
@@ -132,7 +131,7 @@ export async function getDocumentStructure(auth, docId) {
 }
 
 export async function searchDrive(auth, query, type = 'all', maxResults = 20) {
-  const drive = google.drive({ version: 'v3', auth });
+  const drive = getDriveClient(auth);
 
   const mimeTypes = {
     docs: "mimeType='application/vnd.google-apps.document'",

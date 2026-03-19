@@ -1,8 +1,8 @@
-import { google } from 'googleapis';
+import { getDocsClient } from './google-clients.js';
 import { extractText } from './docs-core.js';
 
 export async function insertImage(auth, docId, imageUrl, position = 'end', width = null, height = null) {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const doc = await docs.documents.get({ documentId: docId });
   const content = doc.data.body.content;
 
@@ -43,7 +43,7 @@ export async function insertImage(auth, docId, imageUrl, position = 'end', width
 }
 
 export async function listImages(auth, docId) {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const doc = await docs.documents.get({ documentId: docId });
   const images = [];
   let imageIndex = 0;
@@ -93,7 +93,7 @@ export async function deleteImage(auth, docId, imageIndex) {
   }
 
   const image = images[imageIndex];
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
 
   await docs.documents.batchUpdate({
     documentId: docId,
@@ -117,7 +117,7 @@ export async function replaceImage(auth, docId, imageIndex, newImageUrl, width =
   }
 
   const image = images[imageIndex];
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
 
   const requests = [
     {

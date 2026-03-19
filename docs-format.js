@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { getDocsClient } from './google-clients.js';
 import { readDocument, getAllIndices, parseColor } from './docs-core.js';
 
 export async function formatDocument(auth, docId, searchText, formatting) {
@@ -12,7 +12,7 @@ export async function formatDocument(auth, docId, searchText, formatting) {
     );
   }
 
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const requests = [];
 
   for (const idx of indices) {

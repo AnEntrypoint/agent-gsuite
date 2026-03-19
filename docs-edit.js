@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { getDocsClient } from './google-clients.js';
 import { readDocument, extractText, countOccurrences, getAllIndices, parseColor } from './docs-core.js';
 
 export async function editDocument(auth, docId, oldText, newText, replaceAll = false) {
@@ -21,7 +21,7 @@ export async function editDocument(auth, docId, oldText, newText, replaceAll = f
     );
   }
 
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const indices = getAllIndices(text, oldText);
 
   const requests = [];
@@ -46,7 +46,7 @@ export async function editDocument(auth, docId, oldText, newText, replaceAll = f
 }
 
 export async function insertDocument(auth, docId, text, position = 'end') {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const doc = await docs.documents.get({ documentId: docId });
 
   let index;
@@ -78,7 +78,7 @@ export async function deleteText(auth, docId, searchText, replaceAll = false) {
 }
 
 export async function insertTable(auth, docId, rows, cols, position = 'end') {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const doc = await docs.documents.get({ documentId: docId });
 
   let index;
@@ -113,7 +113,7 @@ export async function insertTable(auth, docId, rows, cols, position = 'end') {
 }
 
 export async function batchUpdate(auth, docId, operations) {
-  const docs = google.docs({ version: 'v1', auth });
+  const docs = getDocsClient(auth);
   const requests = [];
 
   for (const op of operations) {
