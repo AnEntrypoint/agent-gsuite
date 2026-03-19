@@ -4,16 +4,24 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-const CONFIG_DIR = path.join(os.homedir(), '.config', 'agent-gsuite');
-const TOKEN_FILE = path.join(CONFIG_DIR, 'token.json');
+const GLOBAL_CONFIG_DIR = path.join(os.homedir(), '.config', 'agent-gsuite');
+const LOCAL_CONFIG_DIR = path.join(process.cwd(), '.agent-gsuite');
 const ADC_FILE = path.join(os.homedir(), '.config', 'gcloud', 'application_default_credentials.json');
+
+function resolveConfigDir() {
+  if (fs.existsSync(path.join(LOCAL_CONFIG_DIR, 'token.json'))) return LOCAL_CONFIG_DIR;
+  if (fs.existsSync(path.join(LOCAL_CONFIG_DIR, 'config.json'))) return LOCAL_CONFIG_DIR;
+  return GLOBAL_CONFIG_DIR;
+}
+
+const CONFIG_DIR = resolveConfigDir();
+const TOKEN_FILE = path.join(CONFIG_DIR, 'token.json');
 
 const SCOPES = [
   'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/documents',
   'https://www.googleapis.com/auth/spreadsheets',
   'https://www.googleapis.com/auth/script.projects',
-  'https://www.googleapis.com/auth/script.scriptruntime',
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/gmail.settings.basic'
 ];
@@ -51,9 +59,9 @@ function loadTokens() {
   return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
 }
 
-function saveTokens(tokens) {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
+function saveTokens(tokens, dir = CONFIG_DIR) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'token.json'), JSON.stringify(tokens, null, 2));
 }
 
 function buildOAuthClient(clientId, clientSecret, tokens) {
@@ -119,4 +127,4 @@ export async function withAuth(fn) {
   }
 }
 
-export { TOKEN_FILE, CONFIG_DIR, SCOPES, SCOPES as OAUTH_SCOPES, loadConfig, loadTokens, saveTokens };
+export { TOKEN_FILE, CONFIG_DIR, LOCAL_CONFIG_DIR, GLOBAL_CONFIG_DIR, SCOPES, SCOPES as OAUTH_SCOPES, loadConfig, loadTokens, saveTokens };

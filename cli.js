@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { getAuth, CONFIG_DIR, TOKEN_FILE, SCOPES, loadConfig, saveTokens, isAuthError } from './auth.js';
+import { getAuth, CONFIG_DIR, TOKEN_FILE, LOCAL_CONFIG_DIR, GLOBAL_CONFIG_DIR, SCOPES, loadConfig, saveTokens, isAuthError } from './auth.js';
 import * as docs from './docs.js';
 import * as sheets from './sheets.js';
 import * as sections from './docs-sections.js';
@@ -9,7 +9,7 @@ import * as gmail from './gmail.js';
 
 const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
 
-  auth login [--cli]        Authenticate with Google
+  auth login [--cli] [--local|--global]  Authenticate with Google
   auth status               Check authentication status
   auth logout               Remove saved credentials
 
@@ -25,19 +25,26 @@ const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
   drive search <query>      Search Google Drive (--max-results)
 `;
 
-async function runLoginFlow(mode) {
+function resolveLoginDir(args) {
+  if (args.includes('--global')) return GLOBAL_CONFIG_DIR;
+  if (args.includes('--local')) return LOCAL_CONFIG_DIR;
+  return CONFIG_DIR;
+}
+
+async function runLoginFlow(mode, loginDir) {
   const { OAuth2Client } = await import('google-auth-library');
   const cfg = loadConfig();
   const cid = process.env.GOOGLE_OAUTH_CLIENT_ID || cfg?.client_id;
   const csec = process.env.GOOGLE_OAUTH_CLIENT_SECRET || cfg?.client_secret;
   if (!cid || !csec) {
-    console.error(`No OAuth credentials found.\nSet GOOGLE_OAUTH_CLIENT_ID/SECRET env vars, or add to ${CONFIG_DIR}/config.json\nCreate credentials: https://console.cloud.google.com/apis/credentials`);
+    console.error(`No OAuth credentials found.\nSet GOOGLE_OAUTH_CLIENT_ID/SECRET env vars, or add to ${loginDir}/config.json\nCreate credentials: https://console.cloud.google.com/apis/credentials`);
     process.exit(1);
   }
-  return mode === 'cli' ? runCliLogin(cid, csec, OAuth2Client) : runGuiLogin(cid, csec, OAuth2Client);
+  console.log(`Session will be saved to: ${loginDir}`);
+  return mode === 'cli' ? runCliLogin(cid, csec, OAuth2Client, loginDir) : runGuiLogin(cid, csec, OAuth2Client, loginDir);
 }
 
-async function runGuiLogin(cid, csec, OAuth2Client) {
+async function runGuiLogin(cid, csec, OAuth2Client, loginDir) {
   const { createServer } = await import('http');
   const { default: open } = await import('open');
 
@@ -72,11 +79,13 @@ async function runGuiLogin(cid, csec, OAuth2Client) {
     setTimeout(() => { server.close(); reject(new Error('Login timed out after 5 minutes')); }, 5 * 60 * 1000);
   });
 
-  saveTokens({ ...tokens, client_id: cid, client_secret: csec });
-  console.log(`\nAuthenticated! Session saved to: ${TOKEN_FILE}`);
+  const { default: fs } = await import('fs');
+  fs.mkdirSync(loginDir, { recursive: true });
+  saveTokens({ ...tokens, client_id: cid, client_secret: csec }, loginDir);
+  console.log(`\nAuthenticated! Session saved to: ${loginDir}`);
 }
 
-async function runCliLogin(cid, csec, OAuth2Client) {
+async function runCliLogin(cid, csec, OAuth2Client, loginDir) {
   const { createInterface } = await import('readline');
   const oauth2Client = new OAuth2Client(cid, csec, 'urn:ietf:wg:oauth:2.0:oob');
   const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES, prompt: 'consent' });
@@ -84,8 +93,10 @@ async function runCliLogin(cid, csec, OAuth2Client) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const code = await new Promise(resolve => rl.question('\nCode: ', ans => { rl.close(); resolve(ans.trim()); }));
   const { tokens } = await oauth2Client.getToken(code);
-  saveTokens({ ...tokens, client_id: cid, client_secret: csec });
-  console.log(`\nAuthenticated! Session saved to: ${TOKEN_FILE}`);
+  const { default: fs } = await import('fs');
+  fs.mkdirSync(loginDir, { recursive: true });
+  saveTokens({ ...tokens, client_id: cid, client_secret: csec }, loginDir);
+  console.log(`\nAuthenticated! Session saved to: ${loginDir}`);
 }
 
 async function getFreePort() {
@@ -114,7 +125,8 @@ async function main() {
       const subCmd = args[1];
       if (subCmd === 'login') {
         const mode = args.includes('--cli') ? 'cli' : 'gui';
-        await runLoginFlow(mode);
+        const loginDir = resolveLoginDir(args);
+        await runLoginFlow(mode, loginDir);
         return;
       }
       if (subCmd === 'status') {
