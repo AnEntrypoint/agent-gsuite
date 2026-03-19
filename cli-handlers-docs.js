@@ -33,7 +33,8 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       process.exit(1);
     }
     const result = await docs.editDocument(auth, docId, opts.old, opts.new, opts['replace-all']);
-    console.log(`Updated ${result.replacements} instances`);
+    const msg = result.replacements === 1 ? `Replaced 1 occurrence` : `Replaced ${result.replacements} occurrences`;
+    console.log(msg);
     return;
   }
 
@@ -44,7 +45,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       process.exit(1);
     }
     await docs.insertDocument(auth, docId, text, opts.position || opts.after, opts.index);
-    console.log('Text inserted');
+    console.log('Inserted text into document');
     return;
   }
 
@@ -70,7 +71,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
     if (opts.italic !== undefined) formatting.italic = opts.italic === 'true';
     if (opts.heading) formatting.heading = opts.heading;
     const result = await docs.formatDocument(auth, docId, opts.search, formatting);
-    console.log(`Formatted ${result.formattedOccurrences} instances`);
+    console.log(`Formatted ${result.formattedOccurrences} occurrence(s)`);
     return;
   }
 
@@ -80,7 +81,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       process.exit(1);
     }
     const result = await docs.insertTable(auth, docId, parseInt(opts.rows, 10), parseInt(opts.cols, 10), opts.position);
-    console.log(`Inserted table with ${result.rows} rows and ${result.cols} columns`);
+    console.log(`Inserted ${result.rows}x${result.cols} table`);
     return;
   }
 
@@ -90,7 +91,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       process.exit(1);
     }
     const result = await docs.deleteText(auth, docId, opts.text, opts['delete-all']);
-    console.log(`Deleted ${result.replacements} instances`);
+    console.log(`Deleted ${result.replacements} occurrence(s)`);
     return;
   }
 

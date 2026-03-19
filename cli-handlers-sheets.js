@@ -56,7 +56,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
       process.exit(1);
     }
     await sheets.insertSheet(auth, sheetId, parseJson(opts.values));
-    console.log('Rows inserted');
+    console.log('Appended rows');
     return;
   }
 
@@ -76,7 +76,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
       process.exit(1);
     }
     await sheets.setCell(auth, sheetId, opts.cell, opts.value);
-    console.log(`Set cell ${opts.cell} to ${opts.value}`);
+    console.log(`Set cell ${opts.cell}`);
     return;
   }
 
@@ -86,11 +86,16 @@ export async function handleSheetsCommand(auth, args, sheets) {
       process.exit(1);
     }
     let result;
-    if (opts.action === 'add') result = await sheets.addSheetTab(auth, sheetId, opts.name);
-    else if (opts.action === 'delete') result = await sheets.deleteSheetTab(auth, sheetId, opts.name);
-    else if (opts.action === 'rename') result = await sheets.renameSheetTab(auth, sheetId, opts['old-name'] || opts.name, opts['new-name']);
-    else { console.error('Error: --action must be add, delete, or rename'); process.exit(1); }
-    console.log(JSON.stringify(result, null, 2));
+    if (opts.action === 'add') {
+      result = await sheets.addSheetTab(auth, sheetId, opts.name);
+      console.log(`Added sheet tab "${result.title}" with ID: ${result.sheetId}`);
+    } else if (opts.action === 'delete') {
+      result = await sheets.deleteSheetTab(auth, sheetId, opts.name);
+      console.log(`Deleted sheet tab "${result.deleted}"`);
+    } else if (opts.action === 'rename') {
+      result = await sheets.renameSheetTab(auth, sheetId, opts['old-name'] || opts.name, opts['new-name']);
+      console.log(`Renamed sheet tab "${result.oldName}" to "${result.newName}"`);
+    } else { console.error('Error: --action must be add, delete, or rename'); process.exit(1); }
     return;
   }
 
@@ -139,7 +144,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
       process.exit(1);
     }
     const result = await sheets.batchUpdate(auth, sheetId, parseJson(opts.operations));
-    console.log(`Updated ${result.valuesUpdated} values, ${result.formatsApplied} formats`);
+    console.log(`Updated ${result.valuesUpdated} values, applied ${result.formatsApplied} formats`);
     return;
   }
 

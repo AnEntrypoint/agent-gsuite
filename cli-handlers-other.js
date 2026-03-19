@@ -27,13 +27,15 @@ export async function handleScriptsCommand(auth, args, scripts) {
       process.exit(1);
     }
     const result = await scripts.createScript(auth, sheetId, opts['script-name']);
-    console.log(`Created script "${result.scriptId}"`);
+    console.log(`Created script "${result.name}" with ID: ${result.scriptId}\nURL: ${result.url}`);
     return;
   }
 
   if (cmd === 'list') {
     const result = await scripts.listScripts(auth, sheetId);
-    console.log(JSON.stringify(result, null, 2));
+    let listText = JSON.stringify(result.scripts, null, 2);
+    if (result.healed) listText += `\n\n(Auto-healed: removed ${result.removedCount} stale script entries)`;
+    console.log(listText);
     return;
   }
 
@@ -59,7 +61,7 @@ export async function handleScriptsCommand(auth, args, scripts) {
       process.exit(1);
     }
     const result = await scripts.writeScript(auth, scriptId, opts['file-name'], opts.content);
-    console.log(`Updated script file ${opts['file-name']}`);
+    console.log(`Wrote file "${result.file}" (${result.isNew ? 'created' : 'updated'})`);
     return;
   }
 
@@ -89,7 +91,7 @@ export async function handleGmailCommand(auth, args, gmail) {
       process.exit(1);
     }
     const result = await gmail.sendEmail(auth, opts.to, opts.subject, opts.body, opts.cc, opts.bcc);
-    console.log(`Email sent: ${result.id}`);
+    console.log(`Sent email to ${opts.to}\nMessage ID: ${result.id}`);
     return;
   }
 

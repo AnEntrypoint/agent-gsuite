@@ -24,7 +24,7 @@ export async function handleSheetsToolCall(name, args, auth) {
     }
     case 'scripts_read': {
       const result = await scripts.readScript(auth, args.sheet_id, args.script);
-      return formatJsonResponse(result, null, 2);
+      return formatJsonResponse(result);
     }
     case 'scripts_write': {
       if (args.mode === 'edit') {
@@ -80,11 +80,11 @@ export async function handleSheetsToolCall(name, args, auth) {
     }
     case 'sheets_get_info': {
       const info = await sheets.getSpreadsheetInfo(auth, args.sheet_id);
-      return formatJsonResponse(info, null, 2);
+      return formatJsonResponse(info);
     }
     case 'sheets_list': {
       const sheetsList = await sheets.listSpreadsheets(auth, args.max_results || 20, args.query || null);
-      return formatJsonResponse(sheetsList, null, 2);
+      return formatJsonResponse(sheetsList);
     }
     case 'sheets_tab': {
       if (args.action === 'add') {
@@ -167,7 +167,7 @@ export async function handleSheetsToolCall(name, args, auth) {
     }
     case 'sheets_get_formula': {
       const result = await sheets.getCellFormula(auth, args.sheet_id, args.cell);
-      return formatJsonResponse(result, null, 2);
+      return formatJsonResponse(result);
     }
     case 'sheets_batch': {
       const result = await sheets.batchUpdate(auth, args.sheet_id, args.operations);
