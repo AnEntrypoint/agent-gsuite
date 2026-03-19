@@ -5,9 +5,9 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
   const opts = parseArgs(args.slice(1));
 
   if (cmd === 'create') {
-    const title = args[1];
-    if (!title) {
-      console.error('Error: title required');
+    const title = opts.title || args[1];
+    if (!title || title.startsWith('--')) {
+      console.error('Error: title required (use --title "My Doc" or pass as argument)');
       process.exit(1);
     }
     const result = await docs.createDocument(auth, title);

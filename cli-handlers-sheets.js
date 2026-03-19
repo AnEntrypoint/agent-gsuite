@@ -5,9 +5,9 @@ export async function handleSheetsCommand(auth, args, sheets) {
   const opts = parseArgs(args.slice(1));
 
   if (cmd === 'create') {
-    const title = args[1];
-    if (!title) {
-      console.error('Error: title required');
+    const title = opts.title || args[1];
+    if (!title || title.startsWith('--')) {
+      console.error('Error: title required (use --title "My Sheet" or pass as argument)');
       process.exit(1);
     }
     const result = await sheets.createSheet(auth, title);

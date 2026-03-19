@@ -18,7 +18,7 @@ const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
                             section, image (--action, --section, --content, etc)
 
   sheets <cmd> <id>         create, read, edit, list, get-info, get-cell,
-                            set-cell, clear, insert-rows
+                            set-cell, clear, insert, tab, format, merge, batch
 
   gmail list|search|send    List, search, or send emails
   scripts search <query>    Search Apps Scripts
