@@ -10,7 +10,8 @@ import * as gmail from './gmail.js';
 const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
 
 Commands:
-  auth login                Authenticate with Google (opens browser)
+  auth login                Authenticate with Google (opens browser, saves session)
+  auth login --cli          Authenticate without a browser (paste code in terminal)
   auth status               Check authentication status
   auth logout               Remove saved credentials
 
@@ -47,16 +48,10 @@ Commands:
   drive search <query>      Search Google Drive (--query, --max-results)
 `;
 
-async function runLoginFlow() {
-  const { OAuth2Client } = await import('google-auth-library');
-  const { createServer } = await import('http');
-  const { default: open } = await import('open');
-  const { default: fs } = await import('fs');
-
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
+async function loadCredentials(fs) {
+  let cid = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  let csec = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  if (!cid) {
     const configFile = `${CONFIG_DIR}/config.json`;
     if (!fs.existsSync(configFile)) {
       console.error(`
@@ -70,62 +65,87 @@ No OAuth credentials found. Provide them one of two ways:
        { "client_id": "...", "client_secret": "..." }
 
 Create OAuth credentials at: https://console.cloud.google.com/apis/credentials
-Add redirect URI: http://localhost:PORT/callback  (any localhost port)
 `);
       process.exit(1);
     }
-  }
-
-  const port = await getFreePort();
-  const redirectUri = `http://127.0.0.1:${port}/callback`;
-
-  let cid = clientId;
-  let csec = clientSecret;
-  if (!cid) {
-    const cfg = JSON.parse(fs.readFileSync(`${CONFIG_DIR}/config.json`, 'utf8'));
+    const cfg = JSON.parse(fs.readFileSync(configFile, 'utf8'));
     cid = cfg.client_id || cfg.installed?.client_id || cfg.web?.client_id;
     csec = cfg.client_secret || cfg.installed?.client_secret || cfg.web?.client_secret;
   }
+  return { cid, csec };
+}
 
+async function runLoginFlow(mode) {
+  const { OAuth2Client } = await import('google-auth-library');
+  const { default: fs } = await import('fs');
+  const { cid, csec } = await loadCredentials(fs);
+  return mode === 'cli' ? runCliLogin(cid, csec, OAuth2Client) : runGuiLogin(cid, csec, OAuth2Client);
+}
+
+async function runGuiLogin(cid, csec, OAuth2Client) {
+  const { createServer } = await import('http');
+  const { default: open } = await import('open');
+
+  const port = await getFreePort();
+  const redirectUri = `http://127.0.0.1:${port}/callback`;
   const oauth2Client = new OAuth2Client(cid, csec, redirectUri);
-  const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES,
-    prompt: 'consent'
-  });
+  const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES, prompt: 'consent' });
 
   const tokens = await new Promise((resolve, reject) => {
     const server = createServer(async (req, res) => {
-      if (!req.url?.startsWith('/callback')) return;
+      if (!req.url?.startsWith('/callback')) { res.end(); return; }
       const url = new URL(req.url, `http://127.0.0.1:${port}`);
       const code = url.searchParams.get('code');
       const error = url.searchParams.get('error');
       if (error) {
-        res.end('<h2>Authentication canceled.</h2><p>You can close this tab.</p>');
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Authentication canceled</h2><p>You can close this tab.</p></body></html>');
         server.close();
         reject(new Error(`OAuth error: ${error}`));
         return;
       }
       try {
         const { tokens } = await oauth2Client.getToken(code);
-        res.end('<h2>Authentication successful!</h2><p>You can close this tab and return to the terminal.</p>');
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end('<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:#1a73e8">Authentication successful!</h2><p>You can close this tab and return to your terminal.</p></body></html>');
         server.close();
         resolve(tokens);
       } catch (err) {
-        res.end('<h2>Authentication failed.</h2><p>' + err.message + '</p>');
+        res.writeHead(200, { 'Content-Type': 'text/html' });
+        res.end(`<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:red">Authentication failed</h2><p>${err.message}</p></body></html>`);
         server.close();
         reject(err);
       }
     });
     server.listen(port, '127.0.0.1', () => {
-      console.log(`\nOpening browser for Google sign-in...`);
-      console.log(`If the browser does not open, visit:\n  ${authUrl}\n`);
+      console.log('\nOpening browser for Google sign-in...');
+      console.log(`If the browser does not open, copy this URL:\n\n  ${authUrl}\n`);
       open(authUrl).catch(() => {});
     });
     server.on('error', reject);
     setTimeout(() => { server.close(); reject(new Error('Login timed out after 5 minutes')); }, 5 * 60 * 1000);
   });
 
+  saveTokens({ ...tokens, client_id: cid, client_secret: csec });
+  console.log(`\nAuthenticated successfully!`);
+  console.log(`Session saved to: ${TOKEN_FILE}`);
+}
+
+async function runCliLogin(cid, csec, OAuth2Client) {
+  const { createInterface } = await import('readline');
+
+  const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
+  const oauth2Client = new OAuth2Client(cid, csec, redirectUri);
+  const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES, prompt: 'consent' });
+
+  console.log('\nOpen this URL in your browser to sign in:\n');
+  console.log(`  ${authUrl}\n`);
+  console.log('After approving access, Google will show you an authorization code.');
+
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const code = await new Promise(resolve => rl.question('\nPaste the code here: ', ans => { rl.close(); resolve(ans.trim()); }));
+
+  const { tokens } = await oauth2Client.getToken(code);
   saveTokens({ ...tokens, client_id: cid, client_secret: csec });
   console.log(`\nAuthenticated successfully!`);
   console.log(`Session saved to: ${TOKEN_FILE}`);
@@ -156,7 +176,8 @@ async function main() {
     if (cmd === 'auth') {
       const subCmd = args[1];
       if (subCmd === 'login') {
-        await runLoginFlow();
+        const mode = args.includes('--cli') ? 'cli' : 'gui';
+        await runLoginFlow(mode);
         return;
       }
       if (subCmd === 'status') {
