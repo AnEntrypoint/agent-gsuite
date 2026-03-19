@@ -18,17 +18,11 @@ export async function handleGmailToolCall(name, args, auth) {
     case 'gmail_delete_label': return formatDocsResponse(`Deleted label ${(await gmail.deleteLabel(auth, args.label_id)).deleted}`);
     case 'gmail_list_filters': return formatJsonResponse(await gmail.listFilters(auth));
     case 'gmail_get_filter': return formatJsonResponse(await gmail.getFilter(auth, args.filter_id));
-    case 'gmail_create_filter': {
-      const criteria = gmail.normalizeFilterCriteriaInput(args.criteria || {});
-      const action = gmail.normalizeFilterActionInput(args.action || {});
-      return formatJsonResponse(await gmail.createFilter(auth, criteria, action));
-    }
+    case 'gmail_create_filter':
+      return formatJsonResponse(await gmail.createFilter(auth, args.criteria || {}, args.action || {}));
     case 'gmail_delete_filter': return formatDocsResponse(`Deleted filter ${(await gmail.deleteFilter(auth, args.filter_id)).deleted}`);
-    case 'gmail_replace_filter': {
-      const criteria = gmail.normalizeFilterCriteriaInput(args.criteria || {});
-      const action = gmail.normalizeFilterActionInput(args.action || {});
-      return formatJsonResponse(await gmail.replaceFilter(auth, args.filter_id, criteria, action));
-    }
+    case 'gmail_replace_filter':
+      return formatJsonResponse(await gmail.replaceFilter(auth, args.filter_id, args.criteria || {}, args.action || {}));
     case 'gmail_send': {
       const result = await gmail.sendEmail(auth, args.to, args.subject, args.body, args.cc || null, args.bcc || null);
       return formatDocsResponse(`Sent email to ${args.to}\nMessage ID: ${result.id}`);

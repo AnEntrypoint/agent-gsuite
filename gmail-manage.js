@@ -4,6 +4,32 @@ function getGmail(auth) {
   return getGmailClient(auth);
 }
 
+function normalizeFilterCriteria(criteria = {}) {
+  const out = {};
+  if (criteria.from) out.from = criteria.from;
+  if (criteria.to) out.to = criteria.to;
+  if (criteria.subject) out.subject = criteria.subject;
+  if (criteria.query) out.query = criteria.query;
+  if (criteria.negated_query) out.negatedQuery = criteria.negated_query;
+  if (criteria.negatedQuery) out.negatedQuery = criteria.negatedQuery;
+  if (criteria.has_attachment !== undefined) out.hasAttachment = criteria.has_attachment;
+  if (criteria.hasAttachment !== undefined) out.hasAttachment = criteria.hasAttachment;
+  if (criteria.size !== undefined) out.size = criteria.size;
+  if (criteria.size_comparison) out.sizeComparison = criteria.size_comparison;
+  if (criteria.sizeComparison) out.sizeComparison = criteria.sizeComparison;
+  return out;
+}
+
+function normalizeFilterAction(action = {}) {
+  const out = {};
+  if (action.add_label_ids) out.addLabelIds = action.add_label_ids;
+  if (action.addLabelIds) out.addLabelIds = action.addLabelIds;
+  if (action.remove_label_ids) out.removeLabelIds = action.remove_label_ids;
+  if (action.removeLabelIds) out.removeLabelIds = action.removeLabelIds;
+  if (action.forward) out.forward = action.forward;
+  return out;
+}
+
 export async function getLabels(auth) {
   const gmail = getGmail(auth);
   const res = await gmail.users.labels.list({ userId: 'me' });
@@ -55,12 +81,9 @@ export async function getFilter(auth, filterId) {
 
 export async function createFilter(auth, criteria, action) {
   const gmail = getGmail(auth);
-  const { normalizeFilterCriteria, normalizeFilterAction } = await import('./gmail-filters.js');
-  const normalizedCriteria = normalizeFilterCriteria(criteria || {});
-  const normalizedAction = normalizeFilterAction(action || {});
   const res = await gmail.users.settings.filters.create({
     userId: 'me',
-    requestBody: { criteria: normalizedCriteria, action: normalizedAction }
+    requestBody: { criteria: normalizeFilterCriteria(criteria || {}), action: normalizeFilterAction(action || {}) }
   });
   return res.data;
 }
@@ -72,7 +95,6 @@ export async function deleteFilter(auth, filterId) {
 }
 
 export async function replaceFilter(auth, filterId, criteriaPatch = {}, actionPatch = {}) {
-  const { normalizeFilterCriteria, normalizeFilterAction } = await import('./gmail-filters.js');
   const current = await getFilter(auth, filterId);
   const nextCriteria = { ...(current.criteria || {}), ...normalizeFilterCriteria(criteriaPatch || {}) };
   const nextAction = { ...(current.action || {}), ...normalizeFilterAction(actionPatch || {}) };
