@@ -80,7 +80,12 @@ export async function handleGmailCommand(auth, args, gmail) {
   }
 
   if (cmd === 'search') {
-    const result = await gmail.searchEmails(auth, opts.query, parseInt(opts['max-results'] || '20', 10));
+    const query = args[1];
+    if (!query) {
+      console.error('Error: query required');
+      process.exit(1);
+    }
+    const result = await gmail.searchEmails(auth, query, parseInt(opts['max-results'] || '20', 10));
     console.log(JSON.stringify(result, null, 2));
     return;
   }
