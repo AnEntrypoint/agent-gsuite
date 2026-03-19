@@ -11,7 +11,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       process.exit(1);
     }
     const result = await docs.createDocument(auth, title);
-    console.log(`Created document "${result.title}" with ID: ${result.documentId}`);
+    console.log(`Created document "${result.title}" with ID: ${result.docId}`);
     return;
   }
 
@@ -23,7 +23,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
 
   if (cmd === 'read') {
     const result = await docs.readDocument(auth, docId);
-    console.log(result.body);
+    console.log(result);
     return;
   }
 
@@ -33,7 +33,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       process.exit(1);
     }
     const result = await docs.editDocument(auth, docId, opts.old, opts.new, opts['replace-all']);
-    console.log(`Updated ${result.modified} instances`);
+    console.log(`Updated ${result.replacements} instances`);
     return;
   }
 
@@ -43,14 +43,14 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       console.error('Error: --text required');
       process.exit(1);
     }
-    const result = await docs.insertDocument(auth, docId, text, opts.position || opts.after, opts.index);
-    console.log(`Inserted text at position ${result.insertedIndex}`);
+    await docs.insertDocument(auth, docId, text, opts.position || opts.after, opts.index);
+    console.log('Text inserted');
     return;
   }
 
   if (cmd === 'list') {
     const result = await docs.listDocuments(auth, parseInt(opts['max-results'] || '20', 10), opts.query);
-    console.log(JSON.stringify(result.documents, null, 2));
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 
@@ -70,7 +70,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
     if (opts.italic !== undefined) formatting.italic = opts.italic === 'true';
     if (opts.heading) formatting.heading = opts.heading;
     const result = await docs.formatDocument(auth, docId, opts.search, formatting);
-    console.log(`Formatted ${result.formatted} instances`);
+    console.log(`Formatted ${result.formattedOccurrences} instances`);
     return;
   }
 
@@ -90,7 +90,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       process.exit(1);
     }
     const result = await docs.deleteText(auth, docId, opts.text, opts['delete-all']);
-    console.log(`Deleted ${result.deleted} instances`);
+    console.log(`Deleted ${result.replacements} instances`);
     return;
   }
 

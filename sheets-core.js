@@ -1,7 +1,20 @@
 import { getSheetsClient } from './google-clients.js';
-import { parseColor, parseA1Range, colToNum } from './sheets-core-utils.js';
+import { parseColor } from './text-utils.js';
 
-export { parseColor, parseA1Range, colToNum };
+export { parseColor };
+
+export function colToNum(col) {
+  if (typeof col === 'number') return col;
+  let num = 0;
+  for (const char of col.toUpperCase()) num = num * 26 + (char.charCodeAt(0) - 64);
+  return num - 1;
+}
+
+export function parseA1Range(range) {
+  const match = range.match(/^(?:([^!]+)!)?([A-Z]+)(\d+)(?::([A-Z]+)(\d+))?$/i);
+  if (!match) return null;
+  return { sheetName: match[1] || null, startCol: colToNum(match[2]), startRow: parseInt(match[3]) - 1, endCol: match[4] ? colToNum(match[4]) : colToNum(match[2]), endRow: match[5] ? parseInt(match[5]) - 1 : parseInt(match[3]) - 1 };
+}
 
 export async function createSheet(auth, title) {
   const sheets = getSheetsClient(auth);

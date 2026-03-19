@@ -24,3 +24,10 @@ export function countMatches(source, text, throwIfNotFound = true) {
   if (throwIfNotFound && count === 0) throw new Error(`old_text not found in file.`);
   return count;
 }
+
+export function parseColor(colorStr) {
+  if (!colorStr) return null;
+  const hex = colorStr.replace('#', '');
+  if (hex.length !== 6) return null;
+  return { red: parseInt(hex.substring(0, 2), 16) / 255, green: parseInt(hex.substring(2, 4), 16) / 255, blue: parseInt(hex.substring(4, 6), 16) / 255 };
+}

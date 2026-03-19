@@ -1,10 +1,9 @@
 import * as docs from './docs.js';
 import * as sections from './docs-sections.js';
 import * as media from './docs-media.js';
-import { handleDocsImageActions, handleDocsSectionActions } from './handlers-dispatch.js';
 import { handleSheetsToolCall } from './handlers-sheets.js';
 import { handleGmailToolCall } from './handlers-gmail.js';
-import { formatDocsResponse, formatJsonResponse } from './handlers-utils.js';
+import { formatDocsResponse, formatJsonResponse, buildFormattingConfig } from './handlers-utils.js';
 
 export async function handleDocsToolCall(name, args, auth) {
   switch (name) {
@@ -13,7 +12,17 @@ export async function handleDocsToolCall(name, args, auth) {
       return formatJsonResponse(result);
     }
     case 'docs_section': {
-      return handleDocsSectionActions(name, args, auth);
+      if (args.action === 'delete') {
+        const result = await sections.deleteSection(auth, args.doc_id, args.section);
+        return formatDocsResponse(`Deleted section "${result.deleted}"`);
+      } else if (args.action === 'move') {
+        const result = await sections.moveSection(auth, args.doc_id, args.section, args.target);
+        return formatDocsResponse(`Moved section "${result.moved}"`);
+      } else if (args.action === 'replace') {
+        const result = await sections.replaceSection(auth, args.doc_id, args.section, args.content, args.preserve_heading !== false);
+        return formatDocsResponse(`Replaced section "${result.replaced}" (heading preserved: ${result.preservedHeading})`);
+      }
+      throw new Error(`Unknown section action: ${args.action}`);
     }
     case 'docs_delete_section': {
       const result = await sections.deleteSection(auth, args.doc_id, args.section);
@@ -28,7 +37,20 @@ export async function handleDocsToolCall(name, args, auth) {
       return formatDocsResponse(`Replaced section "${result.replaced}" (heading preserved: ${result.preservedHeading})`);
     }
     case 'docs_image': {
-      return handleDocsImageActions(name, args, auth);
+      if (args.action === 'insert') {
+        const result = await media.insertImage(auth, args.doc_id, args.image_url, args.position || 'end', args.width, args.height);
+        return formatDocsResponse(`Inserted image at index ${result.index}`);
+      } else if (args.action === 'list') {
+        const result = await media.listImages(auth, args.doc_id);
+        return formatJsonResponse(result);
+      } else if (args.action === 'delete') {
+        const result = await media.deleteImage(auth, args.doc_id, args.image_index);
+        return formatDocsResponse(`Deleted image at index ${result.imageIndex}`);
+      } else if (args.action === 'replace') {
+        const result = await media.replaceImage(auth, args.doc_id, args.image_index, args.image_url, args.width, args.height);
+        return formatDocsResponse(`Replaced image at index ${result.imageIndex}`);
+      }
+      throw new Error(`Unknown image action: ${args.action}`);
     }
     case 'docs_insert_image': {
       const result = await media.insertImage(auth, args.doc_id, args.image_url, args.position || 'end', args.width, args.height);
@@ -72,11 +94,11 @@ export async function handleDocsToolCall(name, args, auth) {
       return formatJsonResponse(docsList);
     }
     case 'docs_format': {
-      const formatting = {};
-      const mapConfig = { bold: 'bold', italic: 'italic', underline: 'underline', strikethrough: 'strikethrough',
+      const formatting = buildFormattingConfig(args, {
+        bold: 'bold', italic: 'italic', underline: 'underline', strikethrough: 'strikethrough',
         font_size: 'fontSize', font_family: 'fontFamily', foreground_color: 'foregroundColor',
-        background_color: 'backgroundColor', heading: 'heading', alignment: 'alignment' };
-      Object.entries(mapConfig).forEach(([k, v]) => { if (k in args && args[k] !== undefined) formatting[v] = args[k]; });
+        background_color: 'backgroundColor', heading: 'heading', alignment: 'alignment'
+      });
       const result = await docs.formatDocument(auth, args.doc_id, args.search_text, formatting);
       return formatDocsResponse(`Formatted ${result.formattedOccurrences} occurrence(s)`);
     }

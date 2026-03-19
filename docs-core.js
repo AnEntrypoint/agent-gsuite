@@ -22,18 +22,7 @@ export function extractText(content) {
   return text;
 }
 
-export { countOccurrences, getAllIndices } from './text-utils.js';
-
-export function parseColor(colorStr) {
-  if (!colorStr) return null;
-  const hex = colorStr.replace('#', '');
-  if (hex.length !== 6) return null;
-  return {
-    red: parseInt(hex.substring(0, 2), 16) / 255,
-    green: parseInt(hex.substring(2, 4), 16) / 255,
-    blue: parseInt(hex.substring(4, 6), 16) / 255
-  };
-}
+export { countOccurrences, getAllIndices, parseColor } from './text-utils.js';
 
 export async function readDocument(auth, docId) {
   const docs = getDocsClient(auth);

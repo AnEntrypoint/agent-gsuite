@@ -72,7 +72,7 @@ export async function handleGmailCommand(auth, args, gmail) {
   const opts = parseArgs(args.slice(1));
 
   if (cmd === 'list') {
-    const result = await gmail.listEmails(auth, opts.query, parseInt(opts['max-results'] || '20', 10));
+    const result = await gmail.listEmails(auth, parseInt(opts['max-results'] || '20', 10), opts.query);
     console.log(JSON.stringify(result, null, 2));
     return;
   }

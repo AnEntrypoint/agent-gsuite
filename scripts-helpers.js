@@ -68,7 +68,6 @@ export async function verifyAndHealScripts(auth, sheetId, scripts) {
     }
   }
   if (invalidScriptIds.length > 0) {
-    const { removeMultipleScriptsFromTab } = await import('./scripts.js');
     await removeMultipleScriptsFromTab(auth, sheetId, invalidScriptIds);
   }
   return { scripts: validScripts, healed: invalidScriptIds.length > 0, removed: invalidScriptIds };

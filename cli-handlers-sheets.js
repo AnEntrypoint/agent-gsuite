@@ -11,13 +11,13 @@ export async function handleSheetsCommand(auth, args, sheets) {
       process.exit(1);
     }
     const result = await sheets.createSheet(auth, title);
-    console.log(`Created spreadsheet "${result.title}" with ID: ${result.spreadsheetId}`);
+    console.log(`Created spreadsheet "${result.title}" with ID: ${result.sheetId}`);
     return;
   }
 
   if (cmd === 'list') {
     const result = await sheets.listSpreadsheets(auth, parseInt(opts['max-results'] || '20', 10), opts.query);
-    console.log(JSON.stringify(result.spreadsheets, null, 2));
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 
@@ -30,7 +30,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
   if (cmd === 'read') {
     const range = opts.range || 'Sheet1';
     const result = await sheets.readSheet(auth, sheetId, range);
-    console.log(JSON.stringify(result.values, null, 2));
+    console.log(JSON.stringify(result, null, 2));
     return;
   }
 
@@ -39,8 +39,8 @@ export async function handleSheetsCommand(auth, args, sheets) {
       console.error('Error: --range and --values required');
       process.exit(1);
     }
-    const result = await sheets.editSheet(auth, sheetId, opts.range, parseJson(opts.values));
-    console.log(`Updated ${result.valuesUpdated} cells`);
+    await sheets.editSheet(auth, sheetId, opts.range, parseJson(opts.values));
+    console.log(`Updated range ${opts.range}`);
     return;
   }
 
@@ -55,8 +55,8 @@ export async function handleSheetsCommand(auth, args, sheets) {
       console.error('Error: --values required');
       process.exit(1);
     }
-    const result = await sheets.insertSheet(auth, sheetId, parseJson(opts.values));
-    console.log(`Inserted ${result.inserted} rows`);
+    await sheets.insertSheet(auth, sheetId, parseJson(opts.values));
+    console.log('Rows inserted');
     return;
   }
 
@@ -75,8 +75,8 @@ export async function handleSheetsCommand(auth, args, sheets) {
       console.error('Error: --cell and --value required');
       process.exit(1);
     }
-    const result = await sheets.setCell(auth, sheetId, opts.cell, opts.value);
-    console.log(`Set cell ${result.cell} to ${result.value}`);
+    await sheets.setCell(auth, sheetId, opts.cell, opts.value);
+    console.log(`Set cell ${opts.cell} to ${opts.value}`);
     return;
   }
 
@@ -101,7 +101,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
       process.exit(1);
     }
     const result = await sheets.clearRange(auth, sheetId, range, opts['clear-formats']);
-    console.log(`Cleared ${result.clearedCells} cells`);
+    console.log(`Cleared range ${result.cleared}`);
     return;
   }
 
@@ -139,7 +139,7 @@ export async function handleSheetsCommand(auth, args, sheets) {
       process.exit(1);
     }
     const result = await sheets.batchUpdate(auth, sheetId, parseJson(opts.operations));
-    console.log(`Updated ${result.replies?.length || 0} operations`);
+    console.log(`Updated ${result.valuesUpdated} values, ${result.formatsApplied} formats`);
     return;
   }
 
