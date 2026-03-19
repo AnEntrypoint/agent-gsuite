@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { getAuth, CONFIG_DIR, TOKEN_FILE, SCOPES, saveTokens } from './auth.js';
+import { getAuth, CONFIG_DIR, TOKEN_FILE, SCOPES, loadConfig, saveTokens, isAuthError } from './auth.js';
 import * as docs from './docs.js';
 import * as sheets from './sheets.js';
 import * as sections from './docs-sections.js';
@@ -9,76 +9,31 @@ import * as gmail from './gmail.js';
 
 const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
 
-Commands:
-  auth login                Authenticate with Google (opens browser, saves session)
-  auth login --cli          Authenticate without a browser (paste code in terminal)
+  auth login [--cli]        Authenticate with Google
   auth status               Check authentication status
   auth logout               Remove saved credentials
 
-  docs create <title>       Create a new document
-  docs read <id>            Read document content
-  docs edit <id>            Edit document (--old, --new, --replace-all)
-  docs insert <id>          Insert text (--text, --position/--after/--index)
-  docs get-info <id>        Get document metadata
-  docs list                 List documents (--max-results, --query)
-  docs format <id>          Format text (--search, --bold, --italic, --heading, etc)
-  docs insert-table <id>    Insert table (--rows, --cols, --position)
-  docs delete <id>          Delete text from document (--text, --delete-all)
-  docs get-structure <id>   Get document heading hierarchy
-  docs get-sections <id>    Parse document sections
-  docs section <id>         Section operations (--action, --section, --target, --content)
-  docs image <id>           Image operations (--action, --image-url, --image-index, etc)
+  docs <cmd> <id>           create, read, edit, insert, list, get-info, format,
+                            insert-table, delete, get-structure, get-sections,
+                            section, image (--action, --section, --content, etc)
 
-  sheets create <title>     Create a new spreadsheet
-  sheets read <id>          Read sheet range (--range)
-  sheets edit <id>          Edit sheet range (--range, --values)
-  sheets list               List spreadsheets (--max-results, --query)
-  sheets get-info <id>      Get sheet info
-  sheets get-cell <id>      Get single cell (--cell)
-  sheets set-cell <id>      Set cell value (--cell, --value)
-  sheets clear <id>         Clear range (--range)
-  sheets insert-rows <id>   Insert rows/columns (--sheet-name, --dimension, --start-index, --count)
+  sheets <cmd> <id>         create, read, edit, list, get-info, get-cell,
+                            set-cell, clear, insert-rows
 
-  gmail list                List emails (--query, --max-results)
-  gmail search              Search emails (--query)
-  gmail send                Send email (--to, --subject, --body, --cc, --bcc)
-
-  scripts search <query>    Search Apps Scripts by name or content
-
-  drive search <query>      Search Google Drive (--query, --max-results)
+  gmail list|search|send    List, search, or send emails
+  scripts search <query>    Search Apps Scripts
+  drive search <query>      Search Google Drive (--max-results)
 `;
-
-async function loadCredentials(fs) {
-  let cid = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  let csec = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  if (!cid) {
-    const configFile = `${CONFIG_DIR}/config.json`;
-    if (!fs.existsSync(configFile)) {
-      console.error(`
-No OAuth credentials found. Provide them one of two ways:
-
-  1. Environment variables:
-       GOOGLE_OAUTH_CLIENT_ID=...
-       GOOGLE_OAUTH_CLIENT_SECRET=...
-
-  2. Config file at ${configFile}:
-       { "client_id": "...", "client_secret": "..." }
-
-Create OAuth credentials at: https://console.cloud.google.com/apis/credentials
-`);
-      process.exit(1);
-    }
-    const cfg = JSON.parse(fs.readFileSync(configFile, 'utf8'));
-    cid = cfg.client_id || cfg.installed?.client_id || cfg.web?.client_id;
-    csec = cfg.client_secret || cfg.installed?.client_secret || cfg.web?.client_secret;
-  }
-  return { cid, csec };
-}
 
 async function runLoginFlow(mode) {
   const { OAuth2Client } = await import('google-auth-library');
-  const { default: fs } = await import('fs');
-  const { cid, csec } = await loadCredentials(fs);
+  const cfg = loadConfig();
+  const cid = process.env.GOOGLE_OAUTH_CLIENT_ID || cfg?.client_id;
+  const csec = process.env.GOOGLE_OAUTH_CLIENT_SECRET || cfg?.client_secret;
+  if (!cid || !csec) {
+    console.error(`No OAuth credentials found.\nSet GOOGLE_OAUTH_CLIENT_ID/SECRET env vars, or add to ${CONFIG_DIR}/config.json\nCreate credentials: https://console.cloud.google.com/apis/credentials`);
+    process.exit(1);
+  }
   return mode === 'cli' ? runCliLogin(cid, csec, OAuth2Client) : runGuiLogin(cid, csec, OAuth2Client);
 }
 
@@ -97,23 +52,14 @@ async function runGuiLogin(cid, csec, OAuth2Client) {
       const url = new URL(req.url, `http://127.0.0.1:${port}`);
       const code = url.searchParams.get('code');
       const error = url.searchParams.get('error');
-      if (error) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2>Authentication canceled</h2><p>You can close this tab.</p></body></html>');
-        server.close();
-        reject(new Error(`OAuth error: ${error}`));
-        return;
-      }
+      const html = (msg) => { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(`<html><body style="font-family:sans-serif;text-align:center;padding:60px">${msg}<p>You can close this tab.</p></body></html>`); server.close(); };
+      if (error) { html('<h2>Authentication canceled</h2>'); reject(new Error(`OAuth error: ${error}`)); return; }
       try {
         const { tokens } = await oauth2Client.getToken(code);
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end('<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:#1a73e8">Authentication successful!</h2><p>You can close this tab and return to your terminal.</p></body></html>');
-        server.close();
+        html('<h2 style="color:#1a73e8">Authentication successful!</h2>');
         resolve(tokens);
       } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`<html><body style="font-family:sans-serif;text-align:center;padding:60px"><h2 style="color:red">Authentication failed</h2><p>${err.message}</p></body></html>`);
-        server.close();
+        html(`<h2 style="color:red">Authentication failed</h2><p>${err.message}</p>`);
         reject(err);
       }
     });
@@ -127,28 +73,19 @@ async function runGuiLogin(cid, csec, OAuth2Client) {
   });
 
   saveTokens({ ...tokens, client_id: cid, client_secret: csec });
-  console.log(`\nAuthenticated successfully!`);
-  console.log(`Session saved to: ${TOKEN_FILE}`);
+  console.log(`\nAuthenticated! Session saved to: ${TOKEN_FILE}`);
 }
 
 async function runCliLogin(cid, csec, OAuth2Client) {
   const { createInterface } = await import('readline');
-
-  const redirectUri = 'urn:ietf:wg:oauth:2.0:oob';
-  const oauth2Client = new OAuth2Client(cid, csec, redirectUri);
+  const oauth2Client = new OAuth2Client(cid, csec, 'urn:ietf:wg:oauth:2.0:oob');
   const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES, prompt: 'consent' });
-
-  console.log('\nOpen this URL in your browser to sign in:\n');
-  console.log(`  ${authUrl}\n`);
-  console.log('After approving access, Google will show you an authorization code.');
-
+  console.log(`\nOpen this URL in your browser:\n\n  ${authUrl}\n\nPaste the authorization code below.`);
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const code = await new Promise(resolve => rl.question('\nPaste the code here: ', ans => { rl.close(); resolve(ans.trim()); }));
-
+  const code = await new Promise(resolve => rl.question('\nCode: ', ans => { rl.close(); resolve(ans.trim()); }));
   const { tokens } = await oauth2Client.getToken(code);
   saveTokens({ ...tokens, client_id: cid, client_secret: csec });
-  console.log(`\nAuthenticated successfully!`);
-  console.log(`Session saved to: ${TOKEN_FILE}`);
+  console.log(`\nAuthenticated! Session saved to: ${TOKEN_FILE}`);
 }
 
 async function getFreePort() {
@@ -236,7 +173,13 @@ async function main() {
     console.error('Unknown command. Use: docs, sheets, gmail, scripts, drive, auth, help');
     process.exit(1);
   } catch (err) {
-    console.error('Error:', err.message);
+    if (isAuthError(err)) {
+      const mode = process.argv.includes('--cli') ? ' --cli' : '';
+      console.error(`\nAuthentication error: ${err.message}`);
+      console.error(`\nRun: bun x agent-gsuite auth login${mode}`);
+    } else {
+      console.error('Error:', err.message);
+    }
     process.exit(1);
   }
 }

@@ -18,6 +18,28 @@ const SCOPES = [
   'https://www.googleapis.com/auth/gmail.settings.basic'
 ];
 
+export class AuthError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AuthError';
+    this.isAuthError = true;
+  }
+}
+
+export function isAuthError(err) {
+  if (!err) return false;
+  if (err.isAuthError) return true;
+  const status = err.code || err.status || err?.response?.status;
+  if (status === 401 || status === 403) return true;
+  const msg = err.message || '';
+  return (
+    msg.includes('invalid_grant') ||
+    msg.includes('Invalid Credentials') ||
+    msg.includes('Token has been expired or revoked') ||
+    msg.includes('UNAUTHENTICATED')
+  );
+}
+
 function loadConfig() {
   const configFile = path.join(CONFIG_DIR, 'config.json');
   if (!fs.existsSync(configFile)) return null;
@@ -34,6 +56,26 @@ function saveTokens(tokens) {
   fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2));
 }
 
+function buildOAuthClient(clientId, clientSecret, tokens) {
+  const client = new OAuth2Client(clientId, clientSecret);
+  client.setCredentials(tokens);
+  client.on('tokens', updated => saveTokens({ ...tokens, ...updated }));
+  return client;
+}
+
+async function refreshIfExpired(client, tokens) {
+  const expiry = tokens.expiry_date;
+  if (!expiry || expiry > Date.now() + 60_000) return client;
+  try {
+    const { credentials } = await client.refreshAccessToken();
+    saveTokens({ ...tokens, ...credentials });
+    client.setCredentials({ ...tokens, ...credentials });
+    return client;
+  } catch (err) {
+    throw new AuthError(`Authentication expired and refresh failed. Run: bun x agent-gsuite auth login`);
+  }
+}
+
 export async function getAuth() {
   if (process.env.DOCMCP_USE_ADC === '1' || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     const auth = new google.auth.GoogleAuth({ scopes: SCOPES });
@@ -47,27 +89,34 @@ export async function getAuth() {
 
   const tokens = loadTokens();
   if (tokens && tokens.client_id && tokens.client_secret) {
-    const client = new OAuth2Client(tokens.client_id, tokens.client_secret);
-    client.setCredentials(tokens);
-    client.on('tokens', updated => saveTokens({ ...tokens, ...updated }));
-    return client;
+    const client = buildOAuthClient(tokens.client_id, tokens.client_secret, tokens);
+    return refreshIfExpired(client, tokens);
   }
 
   const config = loadConfig();
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID || config?.client_id;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET || config?.client_secret;
   if (!clientId || !clientSecret) {
-    throw new Error('No auth configured. Set GOOGLE_OAUTH_CLIENT_ID/SECRET or run: bun x agent-gsuite auth login');
+    throw new AuthError('No auth configured. Set GOOGLE_OAUTH_CLIENT_ID/SECRET or run: bun x agent-gsuite auth login');
   }
 
   if (!tokens) {
-    throw new Error(`Not authenticated. Run: bun x agent-gsuite auth login`);
+    throw new AuthError(`Not authenticated. Run: bun x agent-gsuite auth login`);
   }
 
-  const client = new OAuth2Client(clientId, clientSecret);
-  client.setCredentials(tokens);
-  client.on('tokens', updated => saveTokens({ ...tokens, ...updated }));
-  return client;
+  const client = buildOAuthClient(clientId, clientSecret, tokens);
+  return refreshIfExpired(client, tokens);
 }
 
-export { TOKEN_FILE, CONFIG_DIR, SCOPES, loadConfig, loadTokens, saveTokens };
+export async function withAuth(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (isAuthError(err) && !(err instanceof AuthError)) {
+      throw new AuthError(`Authentication expired. Run: bun x agent-gsuite auth login`);
+    }
+    throw err;
+  }
+}
+
+export { TOKEN_FILE, CONFIG_DIR, SCOPES, SCOPES as OAUTH_SCOPES, loadConfig, loadTokens, saveTokens };

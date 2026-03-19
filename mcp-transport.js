@@ -1,39 +1,12 @@
-import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, SCRIPTS_TOOLS, GMAIL_TOOLS } from './tools.js';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import {
-  ListToolsRequestSchema,
-  CallToolRequestSchema,
-  ListResourcesRequestSchema,
-  ListResourceTemplatesRequestSchema,
-  ReadResourceRequestSchema
-} from '@modelcontextprotocol/sdk/types.js';
-
-
-
-import { handleDocsToolCall, handleSheetsToolCall, handleGmailToolCall } from './handlers.js';
-import { enrichToolsForApps } from './apps-metadata.js';
-import { listStaticResources, listResourceTemplates, readPublicResource, readResource } from './mcp-resources.js';
+import { buildMcpServer } from './mcp-server.js';
+import { isAuthError } from './auth.js';
 
 export class MCPTransport {
   constructor(oauthServer) {
     this.oauthServer = oauthServer;
     this.serverMap = new Map();
     this.transportMap = new Map();
-    this.sessionContext = null;
-    this.tools = enrichToolsForApps([
-      ...DOCS_TOOLS,
-      ...SECTION_TOOLS,
-      ...MEDIA_TOOLS,
-      ...DRIVE_TOOLS,
-      ...SHEETS_TOOLS,
-      ...SCRIPTS_TOOLS,
-      ...GMAIL_TOOLS
-    ]);
-  }
-
-  setSessionContext(sessionContext) {
-    this.sessionContext = sessionContext;
   }
 
   async handleConnection(req, res, sessionId) {
@@ -51,11 +24,16 @@ export class MCPTransport {
       }
 
       if (!this.transportMap.has(sessionId)) {
+        const getAuth = async () => {
+          const auth = await this.oauthServer.getUserAuth(sessionId);
+          if (!auth) throw new Error('Authentication required. Visit /login to authenticate.');
+          return auth;
+        };
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => sessionId,
           enableJsonResponse: true
         });
-        const server = this.buildMcpServer(sessionId);
+        const server = buildMcpServer(getAuth);
         await server.connect(transport);
         transport.onclose = () => {
           try { server.close(); } catch (e) {}
@@ -74,58 +52,12 @@ export class MCPTransport {
       await this.transportMap.get(sessionId).handleRequest(req, res, req.body);
     } catch (error) {
       console.error('MCP Connection Error:', error);
-      this.sendError(req, res, 500, `Connection failed: ${error.message}`);
+      const status = isAuthError(error) ? 401 : 500;
+      const msg = isAuthError(error)
+        ? `${error.message} Visit /login to re-authenticate.`
+        : `Connection failed: ${error.message}`;
+      this.sendError(req, res, status, msg);
     }
-  }
-
-  buildMcpServer(sessionId) {
-    const server = new Server(
-      { name: 'docmcp', version: '1.0.0' },
-      { capabilities: { tools: {}, resources: {} } }
-    );
-
-    server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: this.tools }));
-    server.setRequestHandler(ListResourcesRequestSchema, async () => ({ resources: listStaticResources() }));
-    server.setRequestHandler(ListResourceTemplatesRequestSchema, async () => ({ resourceTemplates: listResourceTemplates() }));
-
-    server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-      try {
-        const auth = await this.oauthServer.getUserAuth(sessionId);
-        if (!auth) throw new Error('Authentication required');
-        return await readResource(auth, request.params.uri);
-      } catch (err) {
-        return {
-          contents: [{ uri: request.params.uri, mimeType: 'text/plain', text: `Error: ${err.message}` }]
-        };
-      }
-    });
-
-    server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-      try {
-        const auth = await this.oauthServer.getUserAuth(sessionId);
-        if (!auth) throw new Error('Authentication required');
-
-        const docsResult = await handleDocsToolCall(name, args, auth);
-        if (docsResult) return docsResult;
-
-        const sheetsResult = await handleSheetsToolCall(name, args, auth);
-        if (sheetsResult) return sheetsResult;
-
-        const gmailResult = await handleGmailToolCall(name, args, auth);
-        if (gmailResult) return gmailResult;
-
-        throw new Error(`Unknown tool: ${name}`);
-      } catch (err) {
-        console.error(`[tool:${name}] Error:`, err.message);
-        return {
-          content: [{ type: 'text', text: `Error calling ${name}: ${err.message}` }],
-          isError: true
-        };
-      }
-    });
-
-    return server;
   }
 
   sendError(req, res, status, error) {
