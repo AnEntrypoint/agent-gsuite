@@ -1,13 +1,13 @@
 {
-  "name": "docmcp",
+  "name": "agent-gsuite",
   "version": "1.0.0",
-  "description": "Google Docs/Sheets MCP Server with Agent Skills",
+  "description": "Google Workspace MCP Server with Agent Skills",
   "type": "module",
   "main": "index.js",
   "bin": {
-    "docmcp": "cli.js",
-    "docmcp-mcp": "stdio-server.js",
-    "docmcp-http": "http-server.js"
+    "agent-gsuite": "cli.js",
+    "agent-gsuite-mcp": "stdio-server.js",
+    "agent-gsuite-http": "http-server.js"
   },
   "engines": {
     "node": ">=20.0.0"
@@ -29,7 +29,7 @@
     "open": "^10.0.3"
   },
   "agents": {
-    "docmcp": "skills/docmcp"
+    "agent-gsuite": "skills/docmcp"
   },
   "files": [
     "cli.js",
