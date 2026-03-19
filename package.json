@@ -29,7 +29,7 @@
     "open": "^10.0.3"
   },
   "agents": {
-    "agent-gsuite": "skills/docmcp"
+    "agent-gsuite": "skills/agent-gsuite"
   },
   "files": [
     "index.js",
@@ -76,7 +76,8 @@
     "sheets-structure.js",
     "sheets-tabs.js",
     "package.json",
-    "skills/",
+    "skills/agent-gsuite/",
+    "skills/docmcp/",
     "README.md"
   ],
   "license": "MIT",
