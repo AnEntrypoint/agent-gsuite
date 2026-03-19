@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createClient, createOAuthClient, createTokenClient, createADCClient } from './sdk.js';
+import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, SCRIPTS_TOOLS, GMAIL_TOOLS } from './tools.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -10,9 +11,9 @@ import {
   ReadResourceRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import { getAuth } from './auth.js';
-import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS } from './tools-docs.js';
-import { SHEETS_TOOLS, SCRIPTS_TOOLS } from './tools-sheets.js';
-import { GMAIL_TOOLS } from './tools-gmail.js';
+
+
+
 import { handleDocsToolCall, handleSheetsToolCall, handleGmailToolCall } from './handlers.js';
 import { enrichToolsForApps } from './apps-metadata.js';
 import { listStaticResources, listResourceTemplates, readResource } from './mcp-resources.js';

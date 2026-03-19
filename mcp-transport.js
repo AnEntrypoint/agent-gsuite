@@ -1,3 +1,4 @@
+import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, SCRIPTS_TOOLS, GMAIL_TOOLS } from './tools.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {
@@ -7,9 +8,9 @@ import {
   ListResourceTemplatesRequestSchema,
   ReadResourceRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
-import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS } from './tools-docs.js';
-import { SHEETS_TOOLS, SCRIPTS_TOOLS } from './tools-sheets.js';
-import { GMAIL_TOOLS } from './tools-gmail.js';
+
+
+
 import { handleDocsToolCall, handleSheetsToolCall, handleGmailToolCall } from './handlers.js';
 import { enrichToolsForApps } from './apps-metadata.js';
 import { listStaticResources, listResourceTemplates, readPublicResource, readResource } from './mcp-resources.js';
