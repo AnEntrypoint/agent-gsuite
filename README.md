@@ -193,6 +193,49 @@ ngrok http 3333
 `https://<your-public-url>/login`.
 6. Re-open ChatGPT app settings after tool changes so descriptor updates are reloaded.
 
+## Authentication & Session Storage
+
+### Login
+
+```bash
+# Default: browser-based OAuth (recommended)
+bun x agent-gsuite auth login
+
+# Headless / no browser available
+bun x agent-gsuite auth login --cli
+```
+
+### Session location: local vs global
+
+By default the CLI auto-detects where to read credentials: if a `.agent-gsuite/` folder exists in the **current directory** it uses that, otherwise it falls back to the global `~/.config/agent-gsuite/` directory.
+
+Use the flags below to force where the session is saved:
+
+| Flag | Session stored in |
+|------|-------------------|
+| `--local` | `.agent-gsuite/` inside the **current project folder** |
+| `--global` | `~/.config/agent-gsuite/` (user-wide, shared across projects) |
+| _(none)_ | auto: local if `.agent-gsuite/` already exists, else global |
+
+```bash
+# Save credentials to the current project folder (.agent-gsuite/)
+bun x agent-gsuite auth login --local
+
+# Save credentials globally (~/.config/agent-gsuite/)
+bun x agent-gsuite auth login --global
+```
+
+**Per-project isolation**: run `auth login --local` once inside each project directory. Subsequent commands run from that directory will automatically pick up the local session without any extra flags.
+
+Add `.agent-gsuite/` to your `.gitignore` to avoid committing credentials.
+
+### Check / remove session
+
+```bash
+bun x agent-gsuite auth status   # shows token location and expiry
+bun x agent-gsuite auth logout   # removes the active token
+```
+
 ## Usage with Bun
 
 ```bash
@@ -200,8 +243,6 @@ ngrok http 3333
 bun run stdio-server.js
 
 # Execute CLI commands with bun
-bun x docmcp auth login
-bun x docmcp docs list
+bun x agent-gsuite auth login
+bun x agent-gsuite docs list
 ```
-
-Tokens stored at `~/.config/gcloud/docmcp/token.json`.
