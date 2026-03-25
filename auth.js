@@ -8,6 +8,15 @@ const GLOBAL_CONFIG_DIR = path.join(os.homedir(), '.config', 'agent-gsuite');
 const LOCAL_CONFIG_DIR = path.join(process.cwd(), '.agent-gsuite');
 const ADC_FILE = path.join(os.homedir(), '.config', 'gcloud', 'application_default_credentials.json');
 
+for (const key of ['NO_PROXY', 'no_proxy', 'GLOBAL_AGENT_NO_PROXY']) {
+  if (process.env[key]) {
+    process.env[key] = process.env[key]
+      .split(',')
+      .filter(h => !h.endsWith('googleapis.com') && !h.endsWith('google.com'))
+      .join(',');
+  }
+}
+
 function resolveConfigDir() {
   if (fs.existsSync(path.join(LOCAL_CONFIG_DIR, 'token.json'))) return LOCAL_CONFIG_DIR;
   if (fs.existsSync(path.join(LOCAL_CONFIG_DIR, 'config.json'))) return LOCAL_CONFIG_DIR;
