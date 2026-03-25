@@ -11,6 +11,9 @@ const ADC_FILE = path.join(os.homedir(), '.config', 'gcloud', 'application_defau
 function resolveConfigDir() {
   if (fs.existsSync(path.join(LOCAL_CONFIG_DIR, 'token.json'))) return LOCAL_CONFIG_DIR;
   if (fs.existsSync(path.join(LOCAL_CONFIG_DIR, 'config.json'))) return LOCAL_CONFIG_DIR;
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, 'token.json'))) return cwd;
+  if (fs.existsSync(path.join(cwd, 'config.json'))) return cwd;
   return GLOBAL_CONFIG_DIR;
 }
 
