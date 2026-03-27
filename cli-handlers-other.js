@@ -123,6 +123,25 @@ export async function handleDriveCommand(auth, args) {
     return;
   }
 
+  if (cmd === 'upload') {
+    const filePath = args[1];
+    if (!filePath) {
+      console.error('Error: file path required');
+      process.exit(1);
+    }
+    const { callTool } = await import('./sdk.js');
+    const result = await callTool('drive_upload', {
+      file_path: filePath,
+      mime_type: opts['type'] || null,
+      parent_folder_id: opts['folder'] || null,
+      file_name: opts['name'] || null
+    }, auth);
+    console.log(`Uploaded: ${result.name}`);
+    console.log(`ID: ${result.id}`);
+    if (result.webViewLink) console.log(`URL: ${result.webViewLink}`);
+    return;
+  }
+
   console.error('Unknown drive command');
   process.exit(1);
 }
