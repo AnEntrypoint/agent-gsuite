@@ -1,6 +1,6 @@
 {
   "name": "agent-gsuite",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Google Workspace MCP Server with Agent Skills",
   "type": "module",
   "main": "index.js",

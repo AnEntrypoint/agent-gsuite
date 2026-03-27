@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { getAuth, CONFIG_DIR, TOKEN_FILE, LOCAL_CONFIG_DIR, GLOBAL_CONFIG_DIR, SCOPES, loadConfig, saveTokens, isAuthError } from './auth.js';
+import path from 'path';
 import * as docs from './docs.js';
 import * as sheets from './sheets.js';
 import * as sections from './docs-sections.js';
@@ -24,9 +25,18 @@ const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
 function printEnvBlock(tokens, cid, csec) {
   const esc = s => String(s).replace(/'/g, "'\\''");
   const json = esc(JSON.stringify({ ...tokens, client_id: cid, client_secret: csec }));
-  console.log('\n--- Copy these env vars to authenticate elsewhere ---');
-  console.log(`export GOOGLE_OAUTH_CLIENT_ID='${esc(cid)}'\nexport GOOGLE_OAUTH_CLIENT_SECRET='${esc(csec)}'\nexport GSUITE_TOKENS='${json}'`);
-  console.log('-----------------------------------------------------\n');
+  const sep = '='.repeat(60);
+  process.stdout.write(`\n${sep}\nENV VARS — copy these to authenticate on another machine:\n${sep}\nexport GOOGLE_OAUTH_CLIENT_ID='${esc(cid)}'\nexport GOOGLE_OAUTH_CLIENT_SECRET='${esc(csec)}'\nexport GSUITE_TOKENS='${json}'\n${sep}\n\n`);
+}
+
+async function writeEnvFile(tokens, cid, csec, loginDir) {
+  const { default: fs } = await import('fs');
+  const esc = s => String(s).replace(/'/g, "'\\''");
+  const json = esc(JSON.stringify({ ...tokens, client_id: cid, client_secret: csec }));
+  const block = `export GOOGLE_OAUTH_CLIENT_ID='${esc(cid)}'\nexport GOOGLE_OAUTH_CLIENT_SECRET='${esc(csec)}'\nexport GSUITE_TOKENS='${json}'\n`;
+  const envFile = path.join(loginDir, 'gsuite.env');
+  fs.writeFileSync(envFile, block);
+  process.stdout.write(`Env vars also saved to: ${envFile}\n\n`);
 }
 
 function resolveLoginDir(args) {
@@ -86,6 +96,7 @@ async function runGuiLogin(cid, csec, OAuth2Client, loginDir) {
   saveTokens({ ...tokens, client_id: cid, client_secret: csec }, loginDir);
   console.log(`\nAuthenticated! Session saved to: ${loginDir}`);
   printEnvBlock(tokens, cid, csec);
+  await writeEnvFile(tokens, cid, csec, loginDir);
 }
 
 async function runCliLogin(cid, csec, OAuth2Client, loginDir) {
@@ -101,6 +112,7 @@ async function runCliLogin(cid, csec, OAuth2Client, loginDir) {
   saveTokens({ ...tokens, client_id: cid, client_secret: csec }, loginDir);
   console.log(`\nAuthenticated! Session saved to: ${loginDir}`);
   printEnvBlock(tokens, cid, csec);
+  await writeEnvFile(tokens, cid, csec, loginDir);
 }
 
 async function getFreePort() {
