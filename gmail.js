@@ -117,6 +117,23 @@ export async function downloadAttachment(auth, messageId, attachmentId) {
 }
 
 export async function sendEmail(auth, to, subject, body, cc = null, bcc = null) {
+  const gasEndpoint = process.env.GAS_EMAIL_ENDPOINT;
+  if (gasEndpoint) {
+    const authHeaders = await auth.getRequestHeaders();
+    const payload = { to, subject, body };
+    if (cc) payload.cc = cc;
+    if (bcc) payload.bcc = bcc;
+    const res = await fetch(gasEndpoint, {
+      method: 'POST',
+      headers: { ...authHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { response: text }; }
+    if (!res.ok) throw new Error(`GAS endpoint error ${res.status}: ${text}`);
+    return data;
+  }
   const gmail = getGmail(auth);
   const lines = [
     `To: ${to}`,
