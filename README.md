@@ -1,6 +1,6 @@
 # docmcp
 
-Google Docs and Sheets MCP server. 52 tools for docs, sheets, Gmail, and apps script.
+Google Docs and Sheets MCP server. 53 tools for docs, sheets, Gmail, drive, and apps script.
 
 ## HTTP Streaming Server (New!)
 
@@ -245,4 +245,6 @@ bun run stdio-server.js
 # Execute CLI commands with bun
 bun x agent-gsuite auth login
 bun x agent-gsuite docs list
+bun x agent-gsuite drive search "my file"
+bun x agent-gsuite drive upload /path/to/file.pdf
 ```
