@@ -23,6 +23,7 @@ const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
   gmail list|search|send    List, search, or send emails
   scripts search <query>    Search Apps Scripts
   drive search <query>      Search Google Drive (--max-results)
+  drive upload <path>       Upload file to Drive (--type <mime>, --folder <id>, --name <name>)
 `;
 
 function resolveLoginDir(args) {

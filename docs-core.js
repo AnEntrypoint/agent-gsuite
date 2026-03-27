@@ -1,5 +1,7 @@
 import { getDocsClient, getDriveClient } from './google-clients.js';
 import { countOccurrences, getAllIndices } from './text-utils.js';
+import fs from 'fs';
+import path from 'path';
 
 export function extractText(content) {
   let text = '';
@@ -147,4 +149,52 @@ export async function searchDrive(auth, query, type = 'all', maxResults = 20) {
     modifiedTime: f.modifiedTime,
     owners: f.owners?.map(o => ({ name: o.displayName, email: o.emailAddress })) || []
   }));
+}
+
+const MIME_MAP = {
+  '.pdf': 'application/pdf',
+  '.md': 'text/markdown',
+  '.txt': 'text/plain',
+  '.html': 'text/html',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.zip': 'application/zip',
+};
+export async function uploadFile(auth, filePath, mimeType = null, parentFolderId = null, fileName = null) {
+  const drive = getDriveClient(auth);
+  const resolvedPath = path.resolve(filePath);
+
+  if (!fs.existsSync(resolvedPath)) {
+    throw new Error(`File not found: ${resolvedPath}`);
+  }
+
+  const ext = path.extname(resolvedPath).toLowerCase();
+  const detectedMime = mimeType || MIME_MAP[ext] || 'application/octet-stream';
+  const name = fileName || path.basename(resolvedPath);
+
+  const requestBody = { name };
+  if (parentFolderId) requestBody.parents = [parentFolderId];
+
+  const media = { mimeType: detectedMime, body: fs.createReadStream(resolvedPath) };
+
+  const result = await drive.files.create({
+    requestBody,
+    media,
+    fields: 'id,name,mimeType,webViewLink,size'
+  });
+
+  return {
+    id: result.data.id,
+    name: result.data.name,
+    mimeType: result.data.mimeType,
+    webViewLink: result.data.webViewLink,
+    size: result.data.size
+  };
 }
