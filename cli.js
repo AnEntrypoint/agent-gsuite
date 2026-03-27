@@ -6,25 +6,28 @@ import * as sections from './docs-sections.js';
 import * as media from './docs-media.js';
 import * as scripts from './scripts.js';
 import * as gmail from './gmail.js';
-
 const HELP = `agent-gsuite - Google Docs, Sheets, Drive, Gmail CLI
-
   auth login [--cli] [--local|--global]  Authenticate with Google
   auth status               Check authentication status
   auth logout               Remove saved credentials
-
   docs <cmd> <id>           create, read, edit, insert, list, get-info, format,
                             insert-table, delete, get-structure, get-sections,
                             section, image (--action, --section, --content, etc)
-
   sheets <cmd> <id>         create, read, edit, list, get-info, get-cell,
                             set-cell, clear, insert, tab, format, merge, batch
-
   gmail list|search|send    List, search, or send emails
   scripts search <query>    Search Apps Scripts
   drive search <query>      Search Google Drive (--max-results)
   drive upload <path>       Upload file to Drive (--type <mime>, --folder <id>, --name <name>)
 `;
+
+function printEnvBlock(tokens, cid, csec) {
+  const esc = s => String(s).replace(/'/g, "'\\''");
+  const json = esc(JSON.stringify({ ...tokens, client_id: cid, client_secret: csec }));
+  console.log('\n--- Copy these env vars to authenticate elsewhere ---');
+  console.log(`export GOOGLE_OAUTH_CLIENT_ID='${esc(cid)}'\nexport GOOGLE_OAUTH_CLIENT_SECRET='${esc(csec)}'\nexport GSUITE_TOKENS='${json}'`);
+  console.log('-----------------------------------------------------\n');
+}
 
 function resolveLoginDir(args) {
   if (args.includes('--global')) return GLOBAL_CONFIG_DIR;
@@ -48,12 +51,10 @@ async function runLoginFlow(mode, loginDir) {
 async function runGuiLogin(cid, csec, OAuth2Client, loginDir) {
   const { createServer } = await import('http');
   const { default: open } = await import('open');
-
   const port = await getFreePort();
   const redirectUri = `http://127.0.0.1:${port}/callback`;
   const oauth2Client = new OAuth2Client(cid, csec, redirectUri);
   const authUrl = oauth2Client.generateAuthUrl({ access_type: 'offline', scope: SCOPES, prompt: 'consent' });
-
   const tokens = await new Promise((resolve, reject) => {
     const server = createServer(async (req, res) => {
       if (!req.url?.startsWith('/callback')) { res.end(); return; }
@@ -84,6 +85,7 @@ async function runGuiLogin(cid, csec, OAuth2Client, loginDir) {
   fs.mkdirSync(loginDir, { recursive: true });
   saveTokens({ ...tokens, client_id: cid, client_secret: csec }, loginDir);
   console.log(`\nAuthenticated! Session saved to: ${loginDir}`);
+  printEnvBlock(tokens, cid, csec);
 }
 
 async function runCliLogin(cid, csec, OAuth2Client, loginDir) {
@@ -98,6 +100,7 @@ async function runCliLogin(cid, csec, OAuth2Client, loginDir) {
   fs.mkdirSync(loginDir, { recursive: true });
   saveTokens({ ...tokens, client_id: cid, client_secret: csec }, loginDir);
   console.log(`\nAuthenticated! Session saved to: ${loginDir}`);
+  printEnvBlock(tokens, cid, csec);
 }
 
 async function getFreePort() {
@@ -116,12 +119,10 @@ async function main() {
   try {
     const args = process.argv.slice(2);
     const cmd = args[0];
-
     if (!cmd || cmd === 'help' || cmd === '--help' || cmd === '-h') {
       console.log(HELP);
       return;
     }
-
     if (cmd === 'auth') {
       const subCmd = args[1];
       if (subCmd === 'login') {
@@ -136,7 +137,12 @@ async function main() {
           const info = auth.credentials;
           const expiry = info.expiry_date ? new Date(info.expiry_date).toLocaleString() : 'unknown';
           console.log(`Authenticated (token expires: ${expiry})`);
-          console.log(`Token file: ${TOKEN_FILE}`);
+          if (!process.env.GSUITE_TOKENS) {
+            console.log(`Token file: ${TOKEN_FILE}`);
+            const { loadTokens } = await import('./auth.js');
+            const t = loadTokens();
+            if (t?.client_id) printEnvBlock(t, t.client_id, t.client_secret);
+          }
         } catch (err) {
           console.log('Not authenticated:', err.message);
         }
@@ -157,32 +163,26 @@ async function main() {
     }
 
     const auth = await getAuth();
-
     if (cmd === 'docs') {
       const { handleDocsCommand } = await import('./cli-handlers-docs.js');
       return handleDocsCommand(auth, args.slice(1), docs, sections, media);
     }
-
     if (cmd === 'sheets') {
       const { handleSheetsCommand } = await import('./cli-handlers-sheets.js');
       return handleSheetsCommand(auth, args.slice(1), sheets);
     }
-
     if (cmd === 'gmail') {
       const { handleGmailCommand } = await import('./cli-handlers-other.js');
       return handleGmailCommand(auth, args.slice(1), gmail);
     }
-
     if (cmd === 'scripts') {
       const { handleScriptsCommand } = await import('./cli-handlers-other.js');
       return handleScriptsCommand(auth, args.slice(1), scripts);
     }
-
     if (cmd === 'drive') {
       const { handleDriveCommand } = await import('./cli-handlers-other.js');
       return handleDriveCommand(auth, args.slice(1));
     }
-
     console.error('Unknown command. Use: docs, sheets, gmail, scripts, drive, auth, help');
     process.exit(1);
   } catch (err) {

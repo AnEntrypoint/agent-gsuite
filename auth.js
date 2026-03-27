@@ -96,6 +96,18 @@ async function refreshIfExpired(client, tokens) {
   }
 }
 
+async function refreshIfExpiredEnvMode(client, tokens) {
+  const expiry = tokens.expiry_date;
+  if (!expiry || expiry > Date.now() + 60_000) return client;
+  try {
+    const { credentials } = await client.refreshAccessToken();
+    client.setCredentials({ ...tokens, ...credentials });
+    return client;
+  } catch (err) {
+    throw new AuthError(`Authentication expired and refresh failed. Set GSUITE_TOKENS with a fresh token.`);
+  }
+}
+
 export async function getAuth() {
   if (process.env.DOCMCP_USE_ADC === '1' || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     const auth = new google.auth.GoogleAuth({ scopes: SCOPES });
@@ -105,6 +117,16 @@ export async function getAuth() {
   if (fs.existsSync(ADC_FILE) && !process.env.GOOGLE_OAUTH_CLIENT_ID) {
     const auth = new google.auth.GoogleAuth({ scopes: SCOPES });
     return auth.getClient();
+  }
+
+  if (process.env.GSUITE_TOKENS) {
+    let tokens;
+    try { tokens = JSON.parse(process.env.GSUITE_TOKENS); } catch { throw new AuthError('GSUITE_TOKENS is not valid JSON'); }
+    if (!tokens.client_id || !tokens.client_secret) throw new AuthError('GSUITE_TOKENS must include client_id and client_secret');
+    const client = new OAuth2Client(tokens.client_id, tokens.client_secret);
+    client.setCredentials(tokens);
+    client.on('tokens', updated => client.setCredentials({ ...tokens, ...updated }));
+    return refreshIfExpiredEnvMode(client, tokens);
   }
 
   const tokens = loadTokens();
