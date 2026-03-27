@@ -104,6 +104,7 @@ function createClient(auth, userContext = {}) {
     drive: {
       search: (query) => docs.searchDrive(auth, query, userContext),
       list: () => docs.listDocuments(auth, userContext),
+      upload: (filePath, mimeType, parentFolderId, fileName) => docs.uploadFile(auth, filePath, mimeType, parentFolderId, fileName),
     }
   };
 }

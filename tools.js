@@ -8,7 +8,8 @@ export const MEDIA_TOOLS = [
 ];
 
 export const DRIVE_TOOLS = [
-  { name: 'drive_search', description: 'search Google Drive for docs and sheets by name or content', inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'search query matches name and content' }, type: { type: 'string', enum: ['all', 'docs', 'sheets'], description: 'file type filter default all', default: 'all' }, max_results: { type: 'number', description: 'max results default 20', default: 20 } }, required: ['query'] } }
+  { name: 'drive_search', description: 'search Google Drive for docs and sheets by name or content', inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'search query matches name and content' }, type: { type: 'string', enum: ['all', 'docs', 'sheets'], description: 'file type filter default all', default: 'all' }, max_results: { type: 'number', description: 'max results default 20', default: 20 } }, required: ['query'] } },
+  { name: 'drive_upload', description: 'upload a local file to Google Drive', inputSchema: { type: 'object', properties: { file_path: { type: 'string', description: 'absolute or relative path to the local file' }, mime_type: { type: 'string', description: 'MIME type override auto-detected from extension if omitted' }, parent_folder_id: { type: 'string', description: 'Drive folder ID to upload into optional' }, file_name: { type: 'string', description: 'name to give the file in Drive defaults to local filename' } }, required: ['file_path'] } }
 ];
 
 export const DOCS_TOOLS = [
