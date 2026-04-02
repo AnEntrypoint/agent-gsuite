@@ -33,3 +33,4 @@ service-account*.json
 *.jpg
 tmp_pw_runner*.*
 .gm-stop-verified
+.codeinsight
