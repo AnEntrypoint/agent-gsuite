@@ -1,10 +1,10 @@
 ---
 name: agent-gsuite
-description: Google Docs, Sheets, Drive, Apps Script, and Gmail operations. Use when creating, reading, editing, or formatting Google Docs and Sheets. Use when searching Google Drive. Use when managing Apps Script projects. Use when sending, receiving, and managing Gmail messages, labels, and filters.
+description: Google Workspace operations — Docs, Sheets, Drive, Apps Script, Gmail, Calendar, Tasks, Slides, Contacts, Chat, and Search. Use for creating, reading, editing Google Docs/Sheets/Slides. Use for Drive file management. Use for Calendar events and scheduling. Use for Gmail messages, labels, and filters. Use for Tasks, Contacts, and Chat.
 allowed-tools: Bash(node *), Bash(npx *), Read, Glob
 ---
 
-# Google Docs, Sheets, Drive, Apps Script & Gmail
+# Google Workspace — 12 Services, 106 Tools
 
 You have access to a CLI tool that performs all Google Workspace operations. Run it via:
 
@@ -48,6 +48,9 @@ node ~/.claude/skills/agent-gsuite/scripts/gsuite.mjs auth
 | `docs.image` | `{"doc_id": "...", "action": "insert\|list\|delete\|replace", ...}` | Manage images (image_url, image_index, position, width, height) |
 | `docs.batch` | `{"doc_id": "...", "operations": [...]}` | Batch operations (type: insert/delete/format with params) |
 | `docs.list` | `{"max_results": 20, "query": "..."}` | List docs |
+| `docs_find_replace` | `{"doc_id": "...", "find_text": "...", "replace_text": "...", "match_case": false}` | Find and replace all |
+| `docs_export_pdf` | `{"doc_id": "..."}` | Export doc as PDF (base64) |
+| `docs_as_markdown` | `{"doc_id": "..."}` | Get doc as markdown |
 
 ### Google Sheets
 
@@ -79,6 +82,9 @@ node ~/.claude/skills/agent-gsuite/scripts/gsuite.mjs auth
 | Command | JSON Args | Description |
 |---------|-----------|-------------|
 | `drive.search` | `{"query": "...", "type": "all\|docs\|sheets", "max_results": 20}` | Search Drive |
+| `drive_get_download_url` | `{"file_id": "..."}` | Get download URL |
+| `drive_copy` | `{"file_id": "...", "name": "...", "parent_folder_id": "..."}` | Copy a file |
+| `drive_manage_access` | `{"file_id": "...", "action": "share\|unshare\|list", "email": "...", "role": "reader\|writer"}` | Manage file permissions |
 
 ### Apps Script
 
@@ -127,6 +133,73 @@ node ~/.claude/skills/agent-gsuite/scripts/gsuite.mjs auth
 | `gmail_create_filter` | `{"criteria": {"from": "...", "subject": "...", "has_attachment": true, ...}, "action": {"add_label_ids": [...], "remove_label_ids": [...], "forward": "..."}}` | Create filter |
 | `gmail_delete_filter` | `{"filter_id": "..."}` | Delete filter |
 | `gmail_replace_filter` | `{"filter_id": "...", "criteria": {...}, "action": {...}}` | Replace filter (Gmail has no native update API) |
+| `gmail_draft` | `{"to": "...", "subject": "...", "body": "...", "cc": "...", "bcc": "..."}` | Create draft email |
+| `gmail_get_thread` | `{"thread_id": "...", "format": "full"}` | Get full thread content |
+| `gmail_batch_get` | `{"message_ids": [...], "format": "full"}` | Batch get messages |
+
+### Google Calendar
+
+| Command | JSON Args | Description |
+|---------|-----------|-------------|
+| `calendar_list` | `{}` | List all calendars |
+| `calendar_get_events` | `{"calendar_id": "primary", "time_min": "...", "time_max": "...", "query": "...", "max_results": 25, "detailed": false}` | Get events |
+| `calendar_manage_event` | `{"action": "create\|update\|delete\|rsvp", "summary": "...", "start_time": "...", "end_time": "...", "event_id": "...", "attendees": [...], "add_google_meet": true}` | Manage events |
+| `calendar_freebusy` | `{"time_min": "...", "time_max": "...", "calendar_ids": ["primary"]}` | Query free/busy |
+| `calendar_create` | `{"summary": "...", "description": "...", "timezone": "..."}` | Create calendar |
+| `calendar_out_of_office` | `{"action": "list\|create\|delete", "start_time": "...", "end_time": "..."}` | Manage OOO |
+| `calendar_focus_time` | `{"action": "list\|create\|delete", "start_time": "...", "end_time": "..."}` | Manage focus time |
+
+### Google Tasks
+
+| Command | JSON Args | Description |
+|---------|-----------|-------------|
+| `tasks_list_lists` | `{}` | List task lists |
+| `tasks_get_list` | `{"tasklist_id": "..."}` | Get task list |
+| `tasks_manage_list` | `{"action": "create\|update\|delete\|clear", "title": "..."}` | Manage task lists |
+| `tasks_list` | `{"tasklist_id": "@default", "show_completed": true}` | List tasks |
+| `tasks_get` | `{"tasklist_id": "...", "task_id": "..."}` | Get task |
+| `tasks_manage` | `{"action": "create\|update\|delete\|move", "title": "...", "due": "...", "status": "needsAction\|completed"}` | Manage tasks |
+
+### Google Slides
+
+| Command | JSON Args | Description |
+|---------|-----------|-------------|
+| `slides_create` | `{"title": "..."}` | Create presentation |
+| `slides_get` | `{"presentation_id": "..."}` | Get presentation metadata |
+| `slides_batch_update` | `{"presentation_id": "...", "requests": [...]}` | Batch update |
+| `slides_get_page` | `{"presentation_id": "...", "page_id": "..."}` | Get page elements |
+| `slides_get_thumbnail` | `{"presentation_id": "...", "page_id": "...", "mime_type": "PNG"}` | Get slide thumbnail |
+
+### Google Contacts
+
+| Command | JSON Args | Description |
+|---------|-----------|-------------|
+| `contacts_list` | `{"page_size": 100}` | List contacts |
+| `contacts_get` | `{"resource_name": "people/c123"}` | Get contact |
+| `contacts_search` | `{"query": "..."}` | Search contacts |
+| `contacts_manage` | `{"action": "create\|update\|delete", "given_name": "...", "emails": [...], "phones": [...]}` | Manage contacts |
+| `contacts_list_groups` | `{}` | List groups |
+| `contacts_get_group` | `{"resource_name": "..."}` | Get group |
+| `contacts_batch` | `{"action": "add_to_group\|remove_from_group", "resource_names": [...], "group_resource_name": "..."}` | Batch group ops |
+| `contacts_manage_group` | `{"action": "create\|update\|delete", "name": "..."}` | Manage groups |
+
+### Google Chat
+
+| Command | JSON Args | Description |
+|---------|-----------|-------------|
+| `chat_list_spaces` | `{}` | List Chat spaces |
+| `chat_get_messages` | `{"space_name": "spaces/AAAA", "page_size": 25}` | Get messages |
+| `chat_send_message` | `{"space_name": "...", "text": "...", "thread_key": "..."}` | Send message |
+| `chat_search_messages` | `{"query": "..."}` | Search messages |
+| `chat_create_reaction` | `{"message_name": "...", "emoji": "👍"}` | Add reaction |
+| `chat_download_attachment` | `{"attachment_name": "..."}` | Download attachment |
+
+### Google Custom Search
+
+| Command | JSON Args | Description |
+|---------|-----------|-------------|
+| `search_custom` | `{"query": "...", "num": 10, "site_search": "...", "file_type": "pdf"}` | Web search (requires GOOGLE_API_KEY) |
+| `search_engine_info` | `{"search_engine_id": "..."}` | Get search engine info |
 
 ## Usage Pattern
 
