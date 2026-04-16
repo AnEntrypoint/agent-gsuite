@@ -171,3 +171,37 @@ export async function modifyLabels(auth, messageId, addLabels = [], removeLabels
   });
   return { id: res.data.id, threadId: res.data.threadId, labelIds: res.data.labelIds };
 }
+
+export async function draftEmail(auth, to, subject, body, cc = null, bcc = null) {
+  const gmail = getGmail(auth);
+  const lines = [`To: ${to}`, `Subject: ${subject}`];
+  if (cc) lines.push(`Cc: ${cc}`);
+  if (bcc) lines.push(`Bcc: ${bcc}`);
+  lines.push('Content-Type: text/plain; charset=utf-8', '', body);
+  const encoded = Buffer.from(lines.join('\r\n')).toString('base64url');
+  const res = await gmail.users.drafts.create({ userId: 'me', requestBody: { message: { raw: encoded } } });
+  return { id: res.data.id, messageId: res.data.message?.id };
+}
+
+export async function getThreadContent(auth, threadId, format = 'full') {
+  const gmail = getGmail(auth);
+  const res = await gmail.users.threads.get({ userId: 'me', id: threadId, format });
+  const messages = (res.data.messages || []).map(m => ({
+    id: m.id, snippet: m.snippet, labelIds: m.labelIds || [],
+    ...extractHeaders(m.payload.headers), body: extractBody(m.payload)
+  }));
+  return { threadId: res.data.id, messages };
+}
+
+export async function getMessagesBatch(auth, messageIds, format = 'full') {
+  const gmail = getGmail(auth);
+  const results = await Promise.all(
+    messageIds.map(async id => {
+      const res = await gmail.users.messages.get({ userId: 'me', id, format });
+      const m = res.data;
+      return { id: m.id, threadId: m.threadId, snippet: m.snippet,
+        ...extractHeaders(m.payload.headers), body: extractBody(m.payload) };
+    })
+  );
+  return { messages: results, count: results.length };
+}

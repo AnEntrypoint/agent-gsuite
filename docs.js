@@ -8,7 +8,14 @@ export {
   getDocumentInfo,
   listDocuments,
   getDocumentStructure,
-  searchDrive
+  searchDrive,
+  uploadFile,
+  findAndReplace,
+  exportDocToPdf,
+  getDocAsMarkdown,
+  getDownloadUrl,
+  copyFile,
+  manageAccess
 } from './docs-core.js';
 
 export {

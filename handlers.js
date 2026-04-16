@@ -122,6 +122,34 @@ export async function handleDocsToolCall(name, args, auth) {
       const results = await docs.searchDrive(auth, args.query, args.type || 'all', args.max_results || 20);
       return formatJsonResponse(results);
     }
+    case 'drive_upload': {
+      const result = await docs.uploadFile(auth, args.file_path, args.mime_type, args.parent_folder_id, args.file_name);
+      return formatJsonResponse(result);
+    }
+    case 'drive_get_download_url': {
+      const result = await docs.getDownloadUrl(auth, args.file_id);
+      return formatJsonResponse(result);
+    }
+    case 'drive_copy': {
+      const result = await docs.copyFile(auth, args.file_id, args.name, args.parent_folder_id);
+      return formatJsonResponse(result);
+    }
+    case 'drive_manage_access': {
+      const result = await docs.manageAccess(auth, args.file_id, args);
+      return formatJsonResponse(result);
+    }
+    case 'docs_find_replace': {
+      const result = await docs.findAndReplace(auth, args.doc_id, args.find_text, args.replace_text, args.match_case || false);
+      return formatDocsResponse(`Replaced ${result.occurrencesChanged} occurrences`);
+    }
+    case 'docs_export_pdf': {
+      const result = await docs.exportDocToPdf(auth, args.doc_id);
+      return formatJsonResponse(result);
+    }
+    case 'docs_as_markdown': {
+      const result = await docs.getDocAsMarkdown(auth, args.doc_id);
+      return formatJsonResponse(result);
+    }
     default:
       return null;
   }

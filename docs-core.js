@@ -198,3 +198,91 @@ export async function uploadFile(auth, filePath, mimeType = null, parentFolderId
     size: result.data.size
   };
 }
+
+export async function findAndReplace(auth, docId, findText, replaceText, matchCase = false) {
+  const docs = getDocsClient(auth);
+  const res = await docs.documents.batchUpdate({
+    documentId: docId,
+    requestBody: {
+      requests: [{ replaceAllText: { containsText: { text: findText, matchCase }, replaceText } }]
+    }
+  });
+  const count = res.data.replies?.[0]?.replaceAllText?.occurrencesChanged || 0;
+  return { docId, findText, replaceText, occurrencesChanged: count };
+}
+
+export async function exportDocToPdf(auth, docId) {
+  const drive = getDriveClient(auth);
+  const res = await drive.files.export({ fileId: docId, mimeType: 'application/pdf' }, { responseType: 'arraybuffer' });
+  return { docId, pdfBase64: Buffer.from(res.data).toString('base64'), mimeType: 'application/pdf' };
+}
+
+export async function getDocAsMarkdown(auth, docId) {
+  const docs = getDocsClient(auth);
+  const result = await docs.documents.get({ documentId: docId });
+  const content = result.data.body.content || [];
+  let md = '';
+  for (const elem of content) {
+    if (elem.paragraph) {
+      const style = elem.paragraph.paragraphStyle?.namedStyleType || '';
+      const level = style.startsWith('HEADING_') ? parseInt(style.replace('HEADING_', '')) : 0;
+      let line = '';
+      for (const run of elem.paragraph.elements || []) {
+        if (run.textRun) {
+          let text = run.textRun.content;
+          const ts = run.textRun.textStyle || {};
+          if (ts.bold) text = `**${text.trim()}** `;
+          if (ts.italic) text = `*${text.trim()}* `;
+          if (ts.link?.url) text = `[${text.trim()}](${ts.link.url}) `;
+          line += text;
+        }
+      }
+      if (level > 0) line = '#'.repeat(level) + ' ' + line.trim();
+      md += line;
+    } else if (elem.table) {
+      for (const row of elem.table.tableRows || []) {
+        const cells = row.tableCells.map(c => extractText(c.content).trim());
+        md += '| ' + cells.join(' | ') + ' |\n';
+      }
+      md += '\n';
+    }
+  }
+  return { docId, title: result.data.title, markdown: md };
+}
+
+export async function getDownloadUrl(auth, fileId) {
+  const drive = getDriveClient(auth);
+  const res = await drive.files.get({ fileId, fields: 'id,name,webContentLink,mimeType' });
+  return { id: res.data.id, name: res.data.name, downloadUrl: res.data.webContentLink, mimeType: res.data.mimeType };
+}
+
+export async function copyFile(auth, fileId, name, parentFolderId) {
+  const drive = getDriveClient(auth);
+  const body = {};
+  if (name) body.name = name;
+  if (parentFolderId) body.parents = [parentFolderId];
+  const res = await drive.files.copy({ fileId, requestBody: body, fields: 'id,name,mimeType,webViewLink' });
+  return { id: res.data.id, name: res.data.name, mimeType: res.data.mimeType, webViewLink: res.data.webViewLink };
+}
+
+export async function manageAccess(auth, fileId, opts) {
+  const drive = getDriveClient(auth);
+  const { action, email, role = 'reader', permission_id } = opts;
+
+  if (action === 'list') {
+    const res = await drive.permissions.list({ fileId, fields: 'permissions(id,role,type,emailAddress,displayName)' });
+    return { permissions: res.data.permissions || [] };
+  }
+  if (action === 'share') {
+    const res = await drive.permissions.create({
+      fileId, requestBody: { type: 'user', role, emailAddress: email },
+      fields: 'id,role,type,emailAddress'
+    });
+    return { shared: true, permission: res.data };
+  }
+  if (action === 'unshare') {
+    await drive.permissions.delete({ fileId, permissionId: permission_id });
+    return { unshared: true, permissionId: permission_id };
+  }
+  throw new Error(`Unknown drive access action: ${action}`);
+}

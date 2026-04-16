@@ -31,6 +31,9 @@ export async function handleGmailToolCall(name, args, auth) {
     case 'gmail_trash': return formatDocsResponse(`Moved email ${(await gmail.trashEmail(auth, args.message_id)).id} to trash`);
     case 'gmail_modify_labels': return formatDocsResponse(`Modified labels for email ${(await gmail.modifyLabels(auth, args.message_id, args.add_labels || [], args.remove_labels || [])).id}`);
     case 'gmail_bulk_modify_labels': return formatJsonResponse(await gmail.bulkModifyLabelsByQuery(auth, args.query, args.add_labels || [], args.remove_labels || [], args.max_results || 2000));
+    case 'gmail_draft': return formatJsonResponse(await gmail.draftEmail(auth, args.to, args.subject, args.body, args.cc || null, args.bcc || null));
+    case 'gmail_get_thread': return formatJsonResponse(await gmail.getThreadContent(auth, args.thread_id, args.format || 'full'));
+    case 'gmail_batch_get': return formatJsonResponse(await gmail.getMessagesBatch(auth, args.message_ids, args.format || 'full'));
     default: return null;
   }
 }
