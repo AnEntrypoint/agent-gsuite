@@ -1,0 +1,7 @@
+export const SLIDES_TOOLS = [
+  { name: 'slides_create', description: 'create new Google Slides presentation', inputSchema: { type: 'object', properties: { title: { type: 'string', description: 'presentation title' } }, required: ['title'] } },
+  { name: 'slides_get', description: 'get presentation metadata and slide list', inputSchema: { type: 'object', properties: { presentation_id: { type: 'string', description: 'presentation ID' } }, required: ['presentation_id'] } },
+  { name: 'slides_batch_update', description: 'execute batch update requests on presentation', inputSchema: { type: 'object', properties: { presentation_id: { type: 'string', description: 'presentation ID' }, requests: { type: 'array', items: { type: 'object' }, description: 'array of Slides API batch update requests' } }, required: ['presentation_id', 'requests'] } },
+  { name: 'slides_get_page', description: 'get page elements and layout', inputSchema: { type: 'object', properties: { presentation_id: { type: 'string', description: 'presentation ID' }, page_id: { type: 'string', description: 'page object ID' } }, required: ['presentation_id', 'page_id'] } },
+  { name: 'slides_get_thumbnail', description: 'get thumbnail image URL for a slide', inputSchema: { type: 'object', properties: { presentation_id: { type: 'string', description: 'presentation ID' }, page_id: { type: 'string', description: 'page object ID' }, mime_type: { type: 'string', enum: ['PNG', 'JPEG'], description: 'image format default PNG', default: 'PNG' } }, required: ['presentation_id', 'page_id'] } }
+];

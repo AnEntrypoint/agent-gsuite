@@ -1,4 +1,10 @@
 import { DOCS_TOOLS, SECTION_TOOLS, MEDIA_TOOLS, DRIVE_TOOLS, SHEETS_TOOLS, SCRIPTS_TOOLS, GMAIL_TOOLS } from './tools.js';
+import { CALENDAR_TOOLS } from './calendar-tools.js';
+import { TASKS_TOOLS } from './tasks-tools.js';
+import { SLIDES_TOOLS } from './slides-tools.js';
+import { CONTACTS_TOOLS } from './contacts-tools.js';
+import { CHAT_TOOLS } from './chat-tools.js';
+import { SEARCH_TOOLS } from './search-tools.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import {
   ListToolsRequestSchema,
@@ -8,6 +14,12 @@ import {
   ReadResourceRequestSchema
 } from '@modelcontextprotocol/sdk/types.js';
 import { handleDocsToolCall, handleSheetsToolCall, handleGmailToolCall } from './handlers.js';
+import { handleCalendarToolCall } from './handlers-calendar.js';
+import { handleTasksToolCall } from './handlers-tasks.js';
+import { handleSlidesToolCall } from './handlers-slides.js';
+import { handleContactsToolCall } from './handlers-contacts.js';
+import { handleChatToolCall } from './handlers-chat.js';
+import { handleSearchToolCall } from './handlers-search.js';
 import { enrichToolsForApps } from './apps-metadata.js';
 import { listStaticResources, listResourceTemplates, readResource } from './mcp-resources.js';
 import { isAuthError, withAuth } from './auth.js';
@@ -22,7 +34,13 @@ const TOOLS = enrichToolsForApps([
   ...DRIVE_TOOLS,
   ...SHEETS_TOOLS,
   ...SCRIPTS_TOOLS,
-  ...GMAIL_TOOLS
+  ...GMAIL_TOOLS,
+  ...CALENDAR_TOOLS,
+  ...TASKS_TOOLS,
+  ...SLIDES_TOOLS,
+  ...CONTACTS_TOOLS,
+  ...CHAT_TOOLS,
+  ...SEARCH_TOOLS
 ]);
 
 export async function dispatchToolCall(name, args, auth) {
@@ -35,6 +53,24 @@ export async function dispatchToolCall(name, args, auth) {
 
     const gmailResult = await handleGmailToolCall(name, args, auth);
     if (gmailResult) return gmailResult;
+
+    const calendarResult = await handleCalendarToolCall(name, args, auth);
+    if (calendarResult) return calendarResult;
+
+    const tasksResult = await handleTasksToolCall(name, args, auth);
+    if (tasksResult) return tasksResult;
+
+    const slidesResult = await handleSlidesToolCall(name, args, auth);
+    if (slidesResult) return slidesResult;
+
+    const contactsResult = await handleContactsToolCall(name, args, auth);
+    if (contactsResult) return contactsResult;
+
+    const chatResult = await handleChatToolCall(name, args, auth);
+    if (chatResult) return chatResult;
+
+    const searchResult = await handleSearchToolCall(name, args, auth);
+    if (searchResult) return searchResult;
 
     throw new Error(`Unknown tool: ${name}`);
   });

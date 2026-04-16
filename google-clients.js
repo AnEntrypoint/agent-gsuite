@@ -8,6 +8,12 @@ const SERVICE_BASES = {
   docs: 'https://docs.googleapis.com/v1',
   sheets: 'https://sheets.googleapis.com/v4',
   script: 'https://script.googleapis.com/v1',
+  calendar: 'https://www.googleapis.com/calendar/v3',
+  tasks: 'https://tasks.googleapis.com/tasks/v1',
+  people: 'https://people.googleapis.com/v1',
+  chat: 'https://chat.googleapis.com/v1',
+  slides: 'https://slides.googleapis.com/v1',
+  forms: 'https://forms.googleapis.com/v1',
 };
 
 const VERB_MAP = {
@@ -25,6 +31,11 @@ const SEGMENT_ID_MAP = {
   spreadsheets: 'spreadsheetId', scripts: 'scriptId', labels: 'id',
   filters: 'id', delegates: 'delegateEmail', sendAs: 'sendAsEmail', sheets: 'sheetId',
   values: 'range',
+  calendars: 'calendarId', events: 'eventId', calendarList: 'calendarId',
+  tasklists: 'tasklistId', tasks: 'taskId',
+  people: 'resourceName', connections: 'resourceName', contactGroups: 'resourceName',
+  spaces: 'spaceId', presentations: 'presentationId', pages: 'pageId',
+  forms: 'formId', responses: 'responseId',
 };
 
 function resolveIdKey(seg, params) {
@@ -91,4 +102,28 @@ export function getScriptClient(auth) {
 
 export function getDriveClient(auth) {
   return RELAY_URL ? createServiceProxy('drive', auth) : google.drive({ version: 'v3', auth });
+}
+
+export function getCalendarClient(auth) {
+  return RELAY_URL ? createServiceProxy('calendar', auth) : google.calendar({ version: 'v3', auth });
+}
+
+export function getTasksClient(auth) {
+  return RELAY_URL ? createServiceProxy('tasks', auth) : google.tasks({ version: 'v1', auth });
+}
+
+export function getPeopleClient(auth) {
+  return RELAY_URL ? createServiceProxy('people', auth) : google.people({ version: 'v1', auth });
+}
+
+export function getChatClient(auth) {
+  return RELAY_URL ? createServiceProxy('chat', auth) : google.chat({ version: 'v1', auth });
+}
+
+export function getSlidesClient(auth) {
+  return RELAY_URL ? createServiceProxy('slides', auth) : google.slides({ version: 'v1', auth });
+}
+
+export function getFormsClient(auth) {
+  return RELAY_URL ? createServiceProxy('forms', auth) : google.forms({ version: 'v1', auth });
 }
