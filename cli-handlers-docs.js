@@ -10,7 +10,7 @@ export async function handleDocsCommand(auth, args, docs, sections, media) {
       console.error('Error: title required (use --title "My Doc" or pass as argument)');
       process.exit(1);
     }
-    const result = await docs.createDocument(auth, title);
+    const result = await docs.createDocument(auth, title, opts.content);
     console.log(`Created document "${result.title}" with ID: ${result.docId}`);
     return;
   }

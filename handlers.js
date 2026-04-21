@@ -69,7 +69,7 @@ export async function handleDocsToolCall(name, args, auth, context) {
       return formatDocsResponse(`Replaced image at index ${result.imageIndex}`);
     }
     case 'docs_create': {
-      const result = await docs.createDocument(auth, args.title);
+      const result = await docs.createDocument(auth, args.title, args.content);
       if (context) context.trackDoc(result.docId, result.title);
       return formatDocsResponse(`Created document "${result.title}" with ID: ${result.docId}`);
     }

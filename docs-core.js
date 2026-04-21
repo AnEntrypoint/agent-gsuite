@@ -1,5 +1,6 @@
 import { getDocsClient, getDriveClient } from './google-clients.js';
 import { countOccurrences, getAllIndices } from './text-utils.js';
+import { contentToHtml, wrapHtmlDocument } from './docs-html.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -32,12 +33,19 @@ export async function readDocument(auth, docId) {
   return { text: extractText(result.data.body.content), title: result.data.title, docId: result.data.documentId };
 }
 
-export async function createDocument(auth, title) {
-  const docs = getDocsClient(auth);
-  const result = await docs.documents.create({
-    requestBody: { title }
+export async function createDocument(auth, title, content = null) {
+  if (!content) {
+    const docs = getDocsClient(auth);
+    const result = await docs.documents.create({ requestBody: { title } });
+    return { docId: result.data.documentId, title: result.data.title };
+  }
+  const drive = getDriveClient(auth);
+  const html = contentToHtml(content);
+  const result = await drive.files.create({
+    requestBody: { name: title, mimeType: 'application/vnd.google-apps.document' },
+    media: { mimeType: 'text/html', body: Buffer.from(wrapHtmlDocument(html), 'utf8') }
   });
-  return { docId: result.data.documentId, title: result.data.title };
+  return { docId: result.data.id, title };
 }
 
 export async function getDocumentInfo(auth, docId) {
