@@ -1,0 +1,23 @@
+id: home
+title: Home
+hero:
+  heading: "agent-gsuite"
+  subheading: "gsuite tools for agents"
+  body: "Google Workspace integrations packaged as agent tools. mail, docs, calendar."
+  badges:
+    - { label: "agents" }
+    - { label: "gsuite" }
+    - { label: "tooling" }
+  ctas:
+    - { label: "GitHub", href: "https://github.com/AnEntrypoint/agent-gsuite", primary: true }
+    - { label: "247420", href: "https://247420.xyz" }
+features:
+  heading: "Why agent-gsuite"
+  items:
+    - { name: "agents", desc: "flagship trait of agent-gsuite." }
+    - { name: "gsuite", desc: "core capability of agent-gsuite." }
+quickstart:
+  heading: Quick start
+  lines:
+    - { kind: "cmt", text: "# source" }
+    - { kind: "cmd", text: "git clone https://github.com/AnEntrypoint/agent-gsuite.git" }

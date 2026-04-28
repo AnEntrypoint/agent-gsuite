@@ -33,3 +33,7 @@ service-account*.json
 *.jpg
 tmp_pw_runner*.*
 .gm-stop-verified
+.gm/
+.codeinsight/
+rs-learn.db
+.plugkit-browser-profile/

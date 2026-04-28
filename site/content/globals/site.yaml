@@ -1,0 +1,16 @@
+title: "agent-gsuite"
+tagline: "gsuite tools for agents"
+description: "Google Workspace integrations packaged as agent tools. mail, docs, calendar."
+repo: "https://github.com/AnEntrypoint/agent-gsuite"
+url: "https://anentrypoint.github.io/agent-gsuite"
+year: 2026
+keywords:
+  - "agents"
+  - "gsuite"
+  - "247420"
+  - "anentrypoint"
+accent_from: "#ffa657"
+accent_to: "#f0883e"
+glyph: "⊙"
+code: "054"
+category: "tooling"

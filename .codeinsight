@@ -1,0 +1,98 @@
+## 🎯 agent-gsuite v1.0.13 — Google Workspace MCP Server with Agent Skills
+
+**Runtime:** bun (bun)
+
+## 🚀 Quick Start
+
+`node http-server.js --port 3000 --host 0.0.0.0`
+
+# 70f 8.1kL 400fn 5cls cx2.3
+*Legend: f=files L=lines fn=functions cls=classes cx=avg-complexity | file:line:name(NL)=location Np=params | ↑N=imports-from ↓N=imported-by (N)=occurrences (+N)=more | 🔄circular 🏝️isolated 🔥complex 📋duplicated 📁large*
+
+**Langs:** JS:97% JSON:2%
+
+## 🛠️ Tech Stack
+
+**Stack:** Express
+**Patterns:** formatDocsResponse(61), google.sheets(56), requests.push(49), fs.existsSync(37), getGmail(37), docs.documents.get(32)
+**Top IDs:** auth(680), type(361), args(333), data(320), sheets(310), result(301)
+
+## ⚡ Code Patterns
+
+**Async:** async(570), await(572), Promise(1)
+**Errors:** try/catch(54), throw(161)
+**Internal calls:** formatDocsResponse(61), google.sheets(56), requests.push(49), fs.existsSync(37), getGmail(37), docs.documents.batchUpdate(32), docs.documents.get(32), fields.push(30)
+
+## 🔗 I/O & Integration
+
+**Env vars:** COOLIFY_FQDN, COOLIFY_URL, CORS_ORIGIN, DOCMCP_BEARER_TOKEN, DOCMCP_BEARER_TOKENS, DOCMCP_COMPACT_TOOL_METADATA, DOCMCP_USE_ADC, ENABLE_DEBUG_ENDPOINTS, GOOGLE_APPLICATION_CREDENTIALS, GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GSUITE_RELAY_URL, GSUITE_TOKENS, HOME, HOST, PORT, PUBLIC_BASE_URL, REDIRECT_URI, SESSION_FILE, USERPROFILE, npm_config_global
+**HTTP:** fetch(1), routes: /, /.well-known/oauth-authorization-server, /.well-known/oauth-protected-resource, /auth/callback (+9)
+**Storage:** SQL(14), files(77), JSON(62)
+**Events:** emit(0), listen(4)
+
+## 📊 Code Organization
+
+**Large files:** scripts/docs.mjs:317L, scripts/gmail.mjs:249L, scripts/sheets.mjs:249L, cli.js:212L, scripts/gmail.mjs:204L, sheets-core.js:201L (+1)
+**Long funcs:** handlers-sheets.js:5:handleSheetsToolCall(175L), cli-handlers-sheets.js:3:handleSheetsCommand(151L), sheets-format.js:4:formatRange(134L), cli-handlers-docs.js:3:handleDocsCommand(130L), simple-reformat.js:36:simpleReformat(129L), handlers.js:8:handleDocsToolCall(121L) (+10)
+**Many params:** sdk.js:15:createClient(67p), http-routes.js:4:setupRoutes(19p)
+**Classes:** http-server.js:0:AuthenticatedHTTPServer, oauth-server.js:0:OAuthServer, mcp-transport.js:0:MCPTransport, http-session.js:0:SessionManager, auth.js:0:AuthError
+
+## 🔄 Architecture
+
+**L0 [pure exports]:** google-clients(20↓), text-utils(15↓), handlers-utils(12↓), sheets(10↓), docs(9↓), scripts-helpers(8↓), auth(7↓), cli-utils(4↓) (+18)
+**L1 [low imports]:** gmail(2↑10↓), scripts(3↑8↓), docs-core(2↑8↓), docs-media(3↑6↓), scripts-api(2↑7↓), handlers-gmail(3↑5↓), docs-sections(1↑6↓)
+**L2 [mid flow]:** mcp-server(19↑3↓), handlers(14↑4↓), sdk(9↑2↓), handlers-sheets(6↑5↓), mcp-resources(5↑4↓)
+**L3 [pure imports]:** http-server(21↑), cli(18↑), stdio-server(17↑), gdoc(7↑), gsuite(5↑), docs-edit(3↑), sheets-format(3↑), docs-format(3↑) (+3)
+**Cross-module:** cli-handlers-docs.js→cli-utils.js, sheets-format.js→google-clients.js, sheets-format.js→text-utils.js, sheets-format.js→sheets-core.js, docs-sections.js→google-clients.js, sheets-core.js→google-clients.js
+**Hubs:** mcp-server(19↑3↓), http-server(21↑0↓), google-clients(0↑20↓), mcp-transport(17↑1↓), cli(18↑0↓)
+**External:** googleapis, google-auth-library, @modelcontextprotocol/sdk, open, express, cors
+
+## 🔌 API Surface
+
+**Exported fns:** auth.js:63:loadConfig(1p), auth.js:69:loadTokens(1p), auth.js:74:saveTokens(1p), sdk.js:15:createClient(67p), sdk.js:112:createOAuthClient(1p), sdk.js:118:createADCClient(1p), sdk.js:122:createTokenClient(1p), sdk.js:128:callTool(1p)
+**Classes:** AuthenticatedHTTPServer, OAuthServer, MCPTransport, SessionManager, AuthError
+**Entry files:** docs, scripts-helpers, google-clients, text-utils, apps-script (+21)
+
+## 🚨 Issues
+
+- 🔥 Complex funcs: handlers-sheets.js:5:handleSheetsToolCall(175L), cli-handlers-sheets.js:3:handleSheetsCommand(151L), sheets-format.js:4:formatRange(134L), cli-handlers-docs.js:3:handleDocsCommand(130L) (+4)
+- 📋 75 duplicated groups
+- 🔐 hardcoded secrets in cli.js:29, cli.js:36
+
+## 🧹 Dead Code & Tests
+
+**Orphaned:** simple-reformat.js, install-skill.js, setup-claude-code.js, setup-claude-code-prod.js, package.json, package.json (+7)
+**Tests:** 0/70 (0%)
+
+## 📦 Modules
+
+- skills: 22f, 24cx, 12↑12↓
+
+## 📄 File Index
+
+**apps-metadata.js** 102L fn: hasPrefix, toTitle, toUseThisWhen, compactSchemaDescriptions (+1)
+**auth.js** 164L exports: [TOKEN_FILE], [SCOPES], [saveTokens], [loadConfig], [loadTokens] fn: resolveConfigDir, constructor, isAuthError, loadConfig (+7)
+**cli-handlers-docs.js** 132L fn: handleDocsCommand
+**cli-handlers-other.js** 147L fn: handleScriptsCommand, handleGmailCommand, handleDriveCommand
+**cli-handlers-sheets.js** 153L fn: handleSheetsCommand
+**cli-utils.js** 27L fn: parseArgs, parseJson
+**cli.js** 212L fn: printEnvBlock, writeEnvFile, resolveLoginDir, runLoginFlow (+4)
+**docs-core.js** 200L exports: [getAllIndices], [parseColor], [countOccurrences] fn: extractText, readDocument, createDocument, getDocumentInfo (+4)
+**docs-edit.js** 165L fn: editDocument, insertDocument, deleteText, insertTable (+1)
+**docs-format.js** 105L fn: formatDocument
+**docs-media.js** 160L fn: insertImage, listImages, findImages, deleteImage (+2)
+**docs-sections.js** 157L fn: detectHeadingFromText, findSectionIdentifier, buildSectionIndex, getDocEnd (+5)
+**docs.js** 38L exports: [insertTable], [replaceSection], [getDocumentInfo], [insertImage], [moveSection]
+**gmail-manage.js** 160L fn: getGmail, normalizeFilterCriteria, normalizeFilterAction, getLabels (+12)
+**gmail.js** 156L exports: [bulkModifyLabelsByQuery], [bulkModifyLabels], [getLabels], [getFilter], [replaceFilter] fn: getGmail, extractBody, extractHeaders, listEmails (+9)
+**google-clients.js** 94L fn: resolveIdKey, buildUrl, relayFetch, makeProxy (+8)
+**handlers-gmail.js** 36L fn: handleGmailToolCall
+**handlers-sheets.js** 179L fn: handleSheetsToolCall
+**handlers-utils.js** 39L fn: formatDocsResponse, formatJsonResponse, buildFormattingConfig, buildColorConfig (+2)
+**handlers.js** 131L exports: [handleGmailToolCall], [handleSheetsToolCall] fn: handleDocsToolCall
+*+50 more files*
+
+Git: branch: main
+Hot: http-server.js(40), package.json(20), cli.js(13), handlers.js(12), auth.js(7), stdio-server.js(7)
+Tooling: GitHub Actions (publish.yml), Docker
+Conv[JS]: 4-space, single quotes, semicolons, function declarations, named exports, relative imports, kebab-case files
