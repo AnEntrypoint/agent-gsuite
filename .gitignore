@@ -1,7 +1,5 @@
 node_modules/
 package-lock.json
-.env
-.env.local
 .env.*.local
 dist/
 build/
@@ -37,3 +35,4 @@ tmp_pw_runner*.*
 .codeinsight/
 rs-learn.db
 .plugkit-browser-profile/
+config.bat
